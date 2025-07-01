@@ -167,9 +167,24 @@ async function initializeFeedbackPage() {
 
 // 페이지 로딩 상태 관리
 function showPageLoading(isLoading) {
-    const form = document.getElementById('feedback-form');
+    const questionsContainer = document.getElementById('questions-container');
+    const q10Section = document.getElementById('q10-section');
+    const submitBtn = document.getElementById('submit-feedback-btn');
+    
     if (isLoading) {
-        form.innerHTML = '<div class="loading">설문을 준비하는 중...</div>';
+        if (questionsContainer) {
+            questionsContainer.innerHTML = '<div class="loading">설문을 준비하는 중...</div>';
+        }
+        if (q10Section) {
+            q10Section.style.display = 'none';
+        }
+        if (submitBtn) {
+            submitBtn.style.display = 'none';
+        }
+    } else {
+        if (submitBtn) {
+            submitBtn.style.display = 'block';
+        }
     }
 }
 
@@ -184,6 +199,16 @@ function updatePageTitle() {
 // Q1-Q9 질문들 생성
 function generateQuestions() {
     const questionsContainer = document.getElementById('questions-container');
+    if (!questionsContainer) {
+        console.error('questions-container 요소를 찾을 수 없습니다.');
+        return;
+    }
+    
+    if (!contentData) {
+        console.error('contentData가 로드되지 않았습니다.');
+        return;
+    }
+    
     let questionsHtml = '';
 
     for (let i = 1; i <= 9; i++) {
@@ -227,6 +252,16 @@ function generateQuestions() {
 function generateKeywords() {
     const keywordsContainer = document.getElementById('keywords-container');
     const q10Title = document.getElementById('q10-title');
+    
+    if (!keywordsContainer) {
+        console.error('keywords-container 요소를 찾을 수 없습니다.');
+        return;
+    }
+    
+    if (!contentData) {
+        console.error('contentData가 로드되지 않았습니다.');
+        return;
+    }
     
     // Q10 제목 설정
     if (q10Title && contentData.q10_text) {
