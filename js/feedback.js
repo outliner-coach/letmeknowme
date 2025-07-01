@@ -367,7 +367,7 @@ function setupEventListeners() {
                 // 선택 해제
                 checkbox.checked = false;
                 this.classList.remove('selected');
-                selectedKeywords.filter(k => k !== keyword);
+                selectedKeywords = selectedKeywords.filter(k => k !== keyword);
             } else {
                 // 선택 (3개 제한)
                 if (selectedKeywords.length >= 3) {
