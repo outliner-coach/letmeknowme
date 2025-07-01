@@ -423,8 +423,8 @@ function renderMainArchetype() {
     const descEl = document.getElementById('main-archetype-desc');
     const percentageEl = document.getElementById('main-percentage');
 
-    if (nameEl) nameEl.textContent = contentData[`archetype_${mainType}_name`] || '분석 중...';
-    if (descEl) descEl.textContent = contentData[`archetype_${mainType}_desc`] || '분석 중...';
+    if (nameEl) nameEl.textContent = contentData[`type_${mainType}_name`] || '분석 중...';
+    if (descEl) descEl.textContent = contentData[`type_${mainType}_description`] || '분석 중...';
     if (percentageEl) percentageEl.textContent = analysisResult.mainPercentage;
 }
 
@@ -436,8 +436,8 @@ function renderSubArchetype() {
     const descEl = document.getElementById('sub-archetype-desc');
     const percentageEl = document.getElementById('sub-percentage');
 
-    if (nameEl) nameEl.textContent = contentData[`archetype_${subType}_name`] || '분석 중...';
-    if (descEl) descEl.textContent = contentData[`archetype_${subType}_desc`] || '분석 중...';
+    if (nameEl) nameEl.textContent = contentData[`type_${subType}_name`] || '분석 중...';
+    if (descEl) descEl.textContent = contentData[`type_${subType}_description`] || '분석 중...';
     if (percentageEl) percentageEl.textContent = analysisResult.subPercentage;
 }
 
@@ -454,12 +454,12 @@ function renderRadarChart() {
     // 차트 데이터
     const data = {
         labels: [
-            contentData.archetype_A_name || '든든한 리더',
-            contentData.archetype_B_name || '따뜻한 상담가', 
-            contentData.archetype_C_name || '창의적인 아티스트',
-            contentData.archetype_D_name || '긍정의 에너자이저',
-            contentData.archetype_E_name || '치밀한 전략가',
-            contentData.archetype_F_name || '자유로운 탐험가'
+            contentData.type_A_name || '든든한 리더',
+            contentData.type_B_name || '따뜻한 상담가', 
+            contentData.type_C_name || '창의적인 아티스트',
+            contentData.type_D_name || '긍정의 에너자이저',
+            contentData.type_E_name || '치밀한 전략가',
+            contentData.type_F_name || '자유로운 탐험가'
         ],
         datasets: [{
             label: '성향 점수',
