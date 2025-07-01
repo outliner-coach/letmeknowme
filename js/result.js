@@ -14,8 +14,8 @@ const CONFIG = {
     UPDATE_INTERVAL: 30000 // 30초마다 업데이트
 };
 
-// 유틸리티 함수들
-const Utils = {
+// 결과 페이지 전용 유틸리티 함수들
+const ResultUtils = {
     // URL 파라미터 가져오기
     getUrlParameter(name) {
         const urlParams = new URLSearchParams(window.location.search);
@@ -148,7 +148,7 @@ const API = {
 async function initializeResultPage() {
     try {
         // URL에서 ID 추출
-        reportId = Utils.getUrlParameter('id');
+        reportId = ResultUtils.getUrlParameter('id');
         if (!reportId) {
             alert('잘못된 링크입니다.');
             window.location.href = 'index.html';
@@ -238,7 +238,7 @@ function setupResultEventListeners() {
     if (copyBtn) {
         copyBtn.addEventListener('click', async function() {
             const shareLink = document.getElementById('share-link');
-            const success = await Utils.copyToClipboard(shareLink.value);
+            const success = await ResultUtils.copyToClipboard(shareLink.value);
             if (success) {
                 this.textContent = '복사됨!';
                 setTimeout(() => {
@@ -569,7 +569,7 @@ function shareResult() {
         navigator.share(shareData).catch(console.error);
     } else {
         // 폴백: 링크 복사
-        Utils.copyToClipboard(window.location.href).then(success => {
+        ResultUtils.copyToClipboard(window.location.href).then(success => {
             if (success) {
                 alert('결과 링크가 클립보드에 복사되었습니다!');
             } else {

@@ -120,8 +120,8 @@ const API = {
     }
 };
 
-// 유틸리티 함수들
-const Utils = {
+// 메인 페이지 전용 유틸리티 함수들
+const MainUtils = {
     // 클립보드 복사 함수
     async copyToClipboard(text) {
         try {
@@ -169,6 +169,21 @@ const Utils = {
             month: 'short',
             day: 'numeric'
         });
+    },
+    
+    // 로딩 상태 표시
+    showLoading(element, message = '로딩 중...') {
+        if (typeof element === 'string') {
+            element = document.getElementById(element);
+        }
+        if (element) {
+            element.innerHTML = `
+                <div class="loading-message">
+                    <div class="loading-spinner"></div>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
     },
     
     // 에러 표시
@@ -327,7 +342,7 @@ async function initializeMainPage() {
             const targetElement = document.getElementById(targetId);
             
             if (targetElement) {
-                const success = await Utils.copyToClipboard(targetElement.value);
+                const success = await MainUtils.copyToClipboard(targetElement.value);
                 if (success) {
                     const originalText = this.textContent;
                     this.textContent = '복사됨!';
@@ -360,7 +375,7 @@ async function loadRecentReports() {
     if (!reportList) return;
 
     try {
-        Utils.showLoading(reportList, '리포트 목록을 불러오는 중...');
+        MainUtils.showLoading(reportList, '리포트 목록을 불러오는 중...');
         
         const reports = await API.getReports();
         
@@ -374,7 +389,7 @@ async function loadRecentReports() {
                 <a href="result.html?id=${report.id}">
                     <span class="report-name">${report.requesterName}님의 리포트</span>
                     <span class="report-info">${report.responseCount}개 응답</span>
-                    <span class="report-date">${Utils.formatDate(report.createdAt)}</span>
+                    <span class="report-date">${MainUtils.formatDate(report.createdAt)}</span>
                 </a>
             </div>
         `).join('');
@@ -382,7 +397,7 @@ async function loadRecentReports() {
         reportList.innerHTML = reportsHtml;
 
     } catch (error) {
-        Utils.showError(reportList, '리포트 목록을 불러올 수 없습니다.');
+        MainUtils.showError(reportList, '리포트 목록을 불러올 수 없습니다.');
         console.error('리포트 목록 로딩 실패:', error);
     }
 }

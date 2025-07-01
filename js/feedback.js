@@ -13,8 +13,8 @@ const FEEDBACK_CONFIG = {
     MIN_RESPONSES: 5
 };
 
-// 유틸리티 함수들
-const Utils = {
+// 설문 페이지 전용 유틸리티 함수들
+const FeedbackUtils = {
     // URL 파라미터 가져오기
     getUrlParameter(name) {
         const urlParams = new URLSearchParams(window.location.search);
@@ -124,7 +124,7 @@ const API = {
 async function initializeFeedbackPage() {
     try {
         // URL에서 ID 추출
-        reportId = Utils.getUrlParameter('id');
+        reportId = FeedbackUtils.getUrlParameter('id');
         if (!reportId) {
             alert('잘못된 링크입니다.');
             window.location.href = 'index.html';
