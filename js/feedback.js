@@ -4,20 +4,41 @@ let selectedKeywords = [];
 let contentData = null;
 let reportId = null;
 let requesterName = '';
-
-// Global variables
-let currentReportId = null;
-let currentQuestionIndex = 0;
-let totalQuestions = 0;
-let surveyData = null;
 let responses = {};
 
-// Configuration
-const CONFIG = {
+// Configuration (전역에서 사용)
+const FEEDBACK_CONFIG = {
     // Google Apps Script 웹 앱 URL - 실제 배포 후 업데이트 필요
     API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
     MIN_RESPONSES: 5
 };
+
+// 유틸리티 함수들
+const Utils = {
+    // URL 파라미터 가져오기
+    getUrlParameter(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+};
+
+// 콘텐츠 로딩 함수
+async function loadContent() {
+    try {
+        const result = await jsonp(FEEDBACK_CONFIG.API_BASE_URL, {
+            action: 'getContent'
+        });
+        
+        if (result.success) {
+            return result.data;
+        } else {
+            throw new Error(result.error || '콘텐츠를 가져올 수 없습니다.');
+        }
+    } catch (error) {
+        console.error('콘텐츠 로딩 실패:', error);
+        throw error;
+    }
+}
 
 // JSONP 헬퍼 함수
 function jsonp(url, params = {}) {
@@ -62,7 +83,7 @@ const API = {
     // 리포트 조회
     async getReport(reportId) {
         try {
-            const result = await jsonp(CONFIG.API_BASE_URL, {
+            const result = await jsonp(FEEDBACK_CONFIG.API_BASE_URL, {
                 action: 'getReport',
                 id: reportId
             });
@@ -78,28 +99,10 @@ const API = {
         }
     },
 
-    // 콘텐츠 데이터 조회
-    async getContent() {
-        try {
-            const result = await jsonp(CONFIG.API_BASE_URL, {
-                action: 'getContent'
-            });
-            
-            if (result.success) {
-                return result.data;
-            } else {
-                throw new Error(result.error || '콘텐츠를 가져올 수 없습니다.');
-            }
-        } catch (error) {
-            console.error('getContent error:', error);
-            throw error;
-        }
-    },
-
     // 설문 응답 제출 (POST 데이터를 GET으로 변환)
     async submitResponse(reportId, responses) {
         try {
-            const result = await jsonp(CONFIG.API_BASE_URL, {
+            const result = await jsonp(FEEDBACK_CONFIG.API_BASE_URL, {
                 action: 'submitResponse',
                 reportId: reportId,
                 responses: JSON.stringify(responses)

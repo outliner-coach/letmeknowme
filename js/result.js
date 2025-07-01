@@ -16,6 +16,12 @@ const CONFIG = {
 
 // 유틸리티 함수들
 const Utils = {
+    // URL 파라미터 가져오기
+    getUrlParameter(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    },
+
     // 날짜 포맷팅
     formatDate(dateString) {
         const date = new Date(dateString);
@@ -34,10 +40,27 @@ const Utils = {
     // 클립보드 복사
     async copyToClipboard(text) {
         try {
-            await navigator.clipboard.writeText(text);
-            return true;
-        } catch (err) {
-            console.error('클립보드 복사 실패:', err);
+            // 최신 브라우저의 Clipboard API 시도
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } else {
+                // 폴백: 임시 textarea 사용
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                const success = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                return success;
+            }
+        } catch (error) {
+            console.error('복사 실패:', error);
             return false;
         }
     }

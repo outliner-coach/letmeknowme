@@ -120,6 +120,73 @@ const API = {
     }
 };
 
+// 유틸리티 함수들
+const Utils = {
+    // 클립보드 복사 함수
+    async copyToClipboard(text) {
+        try {
+            // 최신 브라우저의 Clipboard API 시도
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } else {
+                // 폴백: 임시 textarea 사용
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                const success = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                return success;
+            }
+        } catch (error) {
+            console.error('복사 실패:', error);
+            return false;
+        }
+    },
+    
+    // 날짜 포맷팅
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        
+        if (minutes < 1) return '방금 전';
+        if (minutes < 60) return `${minutes}분 전`;
+        if (hours < 24) return `${hours}시간 전`;
+        if (days < 7) return `${days}일 전`;
+        
+        return date.toLocaleDateString('ko-KR', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    },
+    
+    // 에러 표시
+    showError(element, message) {
+        if (typeof element === 'string') {
+            element = document.getElementById(element);
+        }
+        if (element) {
+            element.innerHTML = `
+                <div class="error-message">
+                    <i class="error-icon">⚠️</i>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+    }
+};
+
 // URL 파라미터 유틸리티
 const URLUtils = {
     getParam(name) {
