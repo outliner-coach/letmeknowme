@@ -78,8 +78,8 @@ function jsonp(url, params = {}) {
     });
 }
 
-// API 함수들
-const API = {
+// 설문 페이지 API 함수들
+const FeedbackAPI = {
     // 리포트 조회
     async getReport(reportId) {
         try {
@@ -138,7 +138,7 @@ async function initializeFeedbackPage() {
         contentData = await loadContent();
         
         // 리포트 정보 가져오기 (요청자 이름)
-        const reportData = await API.getReport(reportId);
+        const reportData = await FeedbackAPI.getReport(reportId);
         requesterName = reportData.requester_name;
 
         // 페이지 제목 업데이트
@@ -424,7 +424,7 @@ async function handleFormSubmit(e) {
         submitBtn.textContent = '제출 중...';
 
         // API 호출
-        await API.submitResponse(reportId, responseData);
+        await FeedbackAPI.submitResponse(reportId, responseData);
 
         // 성공 메시지 표시
         showSuccessMessage();

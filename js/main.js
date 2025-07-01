@@ -43,8 +43,8 @@ function jsonp(url, params = {}) {
     });
 }
 
-// API 함수들
-const API = {
+// 메인 페이지 API 함수들
+const MainAPI = {
     // 리포트 목록 조회
     async getReports() {
         try {
@@ -297,7 +297,7 @@ async function initializeMainPage() {
                 createBtn.disabled = true;
                 createBtn.textContent = '생성 중...';
 
-                const result = await API.createReport(name);
+                const result = await MainAPI.createReport(name);
                 
                 // 링크 생성
                 const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
@@ -377,7 +377,7 @@ async function loadRecentReports() {
     try {
         MainUtils.showLoading(reportList, '리포트 목록을 불러오는 중...');
         
-        const reports = await API.getReports();
+        const reports = await MainAPI.getReports();
         
         if (reports.length === 0) {
             reportList.innerHTML = '<div class="no-reports">아직 생성된 리포트가 없습니다.</div>';
@@ -412,7 +412,7 @@ async function loadContent() {
     }
     
     try {
-        globalContent = await API.getContent();
+        globalContent = await MainAPI.getContent();
         return globalContent;
     } catch (error) {
         console.error('콘텐츠 로딩 실패:', error);

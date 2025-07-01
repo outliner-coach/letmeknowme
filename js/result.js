@@ -104,8 +104,8 @@ function jsonp(url, params = {}) {
     });
 }
 
-// API 함수들
-const API = {
+// 결과 페이지 API 함수들
+const ResultAPI = {
     // 리포트 조회
     async getReport(reportId) {
         try {
@@ -178,8 +178,8 @@ async function loadPageData() {
     try {
         // 콘텐츠 데이터와 리포트 데이터 병렬 로딩
         [contentData, reportData] = await Promise.all([
-            API.getContent(),
-            API.getReport(reportId)
+            ResultAPI.getContent(),
+            ResultAPI.getReport(reportId)
         ]);
 
         console.log('로딩된 데이터:', { contentData, reportData });
@@ -295,7 +295,7 @@ function startPeriodicUpdate() {
     // 30초마다 데이터 새로고침
     updateInterval = setInterval(async () => {
         try {
-            const newReportData = await API.getReport(reportId);
+            const newReportData = await ResultAPI.getReport(reportId);
             const oldResponseCount = reportData.responses ? reportData.responses.length : 0;
             const newResponseCount = newReportData.responses ? newReportData.responses.length : 0;
             
@@ -313,7 +313,7 @@ function startPeriodicUpdate() {
 async function showReportView() {
     try {
         // 최신 데이터 로딩
-        reportData = await API.getReport(reportId);
+        reportData = await ResultAPI.getReport(reportId);
         
         // 분석 실행
         analysisResult = analyzeResponses(reportData.responses);
