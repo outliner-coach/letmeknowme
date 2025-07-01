@@ -150,11 +150,11 @@ async function initializeFeedbackPage() {
         // 키워드 섹션 생성
         generateKeywords();
 
+        // 로딩 상태 해제 (이벤트 리스너 설정 전에)
+        showPageLoading(false);
+
         // 이벤트 리스너 설정
         setupEventListeners();
-
-        // 로딩 상태 해제
-        showPageLoading(false);
 
         // 첫 번째 질문 표시
         showQuestion(1);
@@ -172,8 +172,9 @@ function showPageLoading(isLoading) {
     const submitBtn = document.getElementById('submit-feedback-btn');
     
     if (isLoading) {
+        // 로딩 중일 때는 요소들을 숨기기만 함 (내용 변경 X)
         if (questionsContainer) {
-            questionsContainer.innerHTML = '<div class="loading">설문을 준비하는 중...</div>';
+            questionsContainer.style.display = 'none';
         }
         if (q10Section) {
             q10Section.style.display = 'none';
@@ -181,9 +182,43 @@ function showPageLoading(isLoading) {
         if (submitBtn) {
             submitBtn.style.display = 'none';
         }
+        
+        // 로딩 메시지를 별도 요소에 표시
+        showLoadingMessage(true);
     } else {
+        // 로딩 완료 후 요소들 다시 표시
+        if (questionsContainer) {
+            questionsContainer.style.display = 'block';
+        }
         if (submitBtn) {
             submitBtn.style.display = 'block';
+        }
+        
+        // 로딩 메시지 숨김
+        showLoadingMessage(false);
+    }
+}
+
+// 로딩 메시지 표시/숨김
+function showLoadingMessage(show) {
+    let loadingDiv = document.getElementById('loading-message');
+    
+    if (show) {
+        if (!loadingDiv) {
+            loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading-message';
+            loadingDiv.className = 'loading';
+            loadingDiv.innerHTML = '<div class="loading">설문을 준비하는 중...</div>';
+            
+            const form = document.getElementById('feedback-form');
+            if (form) {
+                form.insertBefore(loadingDiv, form.firstChild);
+            }
+        }
+        loadingDiv.style.display = 'block';
+    } else {
+        if (loadingDiv) {
+            loadingDiv.style.display = 'none';
         }
     }
 }
