@@ -1,154 +1,199 @@
 // 공통 설정
 const CONFIG = {
     // Google Apps Script 웹 앱 URL - 실제 배포 후 업데이트 필요
-    API_BASE_URL: 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec',
+    API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
     MIN_RESPONSES: 5
 };
 
-// API 통신 함수들
-const API = {
-    // 전체 콘텐츠 조회
-    async getContent() {
-        try {
-            const response = await fetch(`${CONFIG.API_BASE_URL}?action=getContent`);
-            if (!response.ok) throw new Error('Network response was not ok');
-            return await response.json();
-        } catch (error) {
-            console.error('콘텐츠 로딩 실패:', error);
-            throw error;
-        }
-    },
+// JSONP 헬퍼 함수
+function jsonp(url, params = {}) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+        
+        // 콜백 함수 등록
+        window[callbackName] = function(data) {
+            delete window[callbackName];
+            document.body.removeChild(script);
+            resolve(data);
+        };
+        
+        // URL 파라미터 구성
+        const queryParams = new URLSearchParams(params);
+        queryParams.append('callback', callbackName);
+        
+        // 스크립트 태그 생성
+        const script = document.createElement('script');
+        script.src = url + '?' + queryParams.toString();
+        script.onerror = function() {
+            delete window[callbackName];
+            document.body.removeChild(script);
+            reject(new Error('JSONP request failed'));
+        };
+        
+        document.body.appendChild(script);
+        
+        // 타임아웃 설정 (10초)
+        setTimeout(() => {
+            if (window[callbackName]) {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                reject(new Error('JSONP request timeout'));
+            }
+        }, 10000);
+    });
+}
 
-    // 전체 리포트 목록 조회
+// API 함수들
+const API = {
+    // 리포트 목록 조회
     async getReports() {
         try {
-            const response = await fetch(CONFIG.API_BASE_URL);
-            if (!response.ok) throw new Error('Network response was not ok');
-            return await response.json();
-        } catch (error) {
-            console.error('리포트 목록 로딩 실패:', error);
-            throw error;
-        }
-    },
-
-    // 특정 리포트 상세 데이터 조회
-    async getReport(id) {
-        try {
-            const response = await fetch(`${CONFIG.API_BASE_URL}?id=${id}`);
-            if (!response.ok) throw new Error('Network response was not ok');
-            return await response.json();
-        } catch (error) {
-            console.error('리포트 데이터 로딩 실패:', error);
-            throw error;
-        }
-    },
-
-    // 신규 리포트 생성
-    async createReport(name) {
-        try {
-            const response = await fetch(CONFIG.API_BASE_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'create',
-                    name: name
-                })
+            const result = await jsonp(CONFIG.API_BASE_URL, {
+                action: 'getReports'
             });
-            if (!response.ok) throw new Error('Network response was not ok');
-            return await response.json();
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || '리포트 목록을 가져올 수 없습니다.');
+            }
         } catch (error) {
-            console.error('리포트 생성 실패:', error);
+            console.error('getReports error:', error);
             throw error;
         }
     },
 
-    // 설문 응답 제출
-    async submitResponse(id, response) {
+    // 새 리포트 생성
+    async createReport(requesterName) {
         try {
-            const apiResponse = await fetch(CONFIG.API_BASE_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'submit',
-                    id: id,
-                    response: response
-                })
+            const result = await jsonp(CONFIG.API_BASE_URL, {
+                action: 'createReport',
+                requesterName: requesterName
             });
-            if (!apiResponse.ok) throw new Error('Network response was not ok');
-            return await apiResponse.json();
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || '리포트를 생성할 수 없습니다.');
+            }
         } catch (error) {
-            console.error('응답 제출 실패:', error);
+            console.error('createReport error:', error);
+            throw error;
+        }
+    },
+
+    // 리포트 상세 조회
+    async getReport(reportId) {
+        try {
+            const result = await jsonp(CONFIG.API_BASE_URL, {
+                action: 'getReport',
+                id: reportId
+            });
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || '리포트를 찾을 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('getReport error:', error);
+            throw error;
+        }
+    },
+
+    // 콘텐츠 데이터 조회
+    async getContent() {
+        try {
+            const result = await jsonp(CONFIG.API_BASE_URL, {
+                action: 'getContent'
+            });
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || '콘텐츠를 가져올 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('getContent error:', error);
             throw error;
         }
     }
 };
 
-// 유틸리티 함수들
-const Utils = {
-    // URL 파라미터 가져오기
-    getUrlParameter(name) {
+// URL 파라미터 유틸리티
+const URLUtils = {
+    getParam(name) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(name);
     },
-
-    // 날짜 포맷팅
-    formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('ko-KR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
+    
+    setParam(name, value) {
+        const url = new URL(window.location);
+        url.searchParams.set(name, value);
+        window.history.pushState({}, '', url);
     },
+    
+    removeParam(name) {
+        const url = new URL(window.location);
+        url.searchParams.delete(name);
+        window.history.pushState({}, '', url);
+    }
+};
 
-    // 클립보드에 복사
-    async copyToClipboard(text) {
-        try {
-            await navigator.clipboard.writeText(text);
-            return true;
-        } catch (err) {
-            // fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                return true;
-            } catch (error) {
-                document.body.removeChild(textArea);
-                return false;
-            }
+// 로딩 상태 관리
+const LoadingManager = {
+    show(element, message = '로딩 중...') {
+        if (typeof element === 'string') {
+            element = document.getElementById(element);
+        }
+        if (element) {
+            element.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>${message}</p>
+                </div>
+            `;
         }
     },
+    
+    hide(element) {
+        if (typeof element === 'string') {
+            element = document.getElementById(element);
+        }
+        if (element) {
+            element.innerHTML = '';
+        }
+    }
+};
 
-    // 로딩 표시
-    showLoading(element, message = '로딩 중...') {
-        element.innerHTML = `<div class="loading">${message}</div>`;
+// 에러 처리 유틸리티
+const ErrorHandler = {
+    show(message, container = 'error-container') {
+        const errorDiv = document.getElementById(container);
+        if (errorDiv) {
+            errorDiv.innerHTML = `
+                <div class="error-message">
+                    <i class="error-icon">⚠️</i>
+                    <p>${message}</p>
+                    <button onclick="this.parentElement.parentElement.style.display='none'">닫기</button>
+                </div>
+            `;
+            errorDiv.style.display = 'block';
+        } else {
+            alert(message);
+        }
     },
-
-    // 에러 메시지 표시
-    showError(element, message = '오류가 발생했습니다.') {
-        element.innerHTML = `<div class="error">${message}</div>`;
-    },
-
-    // UUID 생성 (클라이언트용)
-    generateUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            const r = Math.random() * 16 | 0;
-            const v = c == 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
+    
+    hide(container = 'error-container') {
+        const errorDiv = document.getElementById(container);
+        if (errorDiv) {
+            errorDiv.style.display = 'none';
+        }
     }
 };
 
 // 메인 페이지 초기화 함수
-function initializeMainPage() {
+async function initializeMainPage() {
     const createBtn = document.getElementById('create-btn');
     const nameInput = document.getElementById('name-input');
     const linkDisplayArea = document.getElementById('link-display-area');
@@ -260,8 +305,9 @@ async function loadRecentReports() {
         const reportsHtml = reports.map(report => `
             <div class="report-item">
                 <a href="result.html?id=${report.id}">
-                    <span class="report-name">${report.name}님의 리포트</span>
-                    <span class="report-date">${Utils.formatDate(report.date)}</span>
+                    <span class="report-name">${report.requesterName}님의 리포트</span>
+                    <span class="report-info">${report.responseCount}개 응답</span>
+                    <span class="report-date">${Utils.formatDate(report.createdAt)}</span>
                 </a>
             </div>
         `).join('');
@@ -290,4 +336,9 @@ async function loadContent() {
         console.error('콘텐츠 로딩 실패:', error);
         throw error;
     }
-} 
+}
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMainPage();
+}); 

@@ -5,6 +5,118 @@ let contentData = null;
 let reportId = null;
 let requesterName = '';
 
+// Global variables
+let currentReportId = null;
+let currentQuestionIndex = 0;
+let totalQuestions = 0;
+let surveyData = null;
+let responses = {};
+
+// Configuration
+const CONFIG = {
+    // Google Apps Script 웹 앱 URL - 실제 배포 후 업데이트 필요
+    API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
+    MIN_RESPONSES: 5
+};
+
+// JSONP 헬퍼 함수
+function jsonp(url, params = {}) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+        
+        // 콜백 함수 등록
+        window[callbackName] = function(data) {
+            delete window[callbackName];
+            document.body.removeChild(script);
+            resolve(data);
+        };
+        
+        // URL 파라미터 구성
+        const queryParams = new URLSearchParams(params);
+        queryParams.append('callback', callbackName);
+        
+        // 스크립트 태그 생성
+        const script = document.createElement('script');
+        script.src = url + '?' + queryParams.toString();
+        script.onerror = function() {
+            delete window[callbackName];
+            document.body.removeChild(script);
+            reject(new Error('JSONP request failed'));
+        };
+        
+        document.body.appendChild(script);
+        
+        // 타임아웃 설정 (10초)
+        setTimeout(() => {
+            if (window[callbackName]) {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                reject(new Error('JSONP request timeout'));
+            }
+        }, 10000);
+    });
+}
+
+// API 함수들
+const API = {
+    // 리포트 조회
+    async getReport(reportId) {
+        try {
+            const result = await jsonp(CONFIG.API_BASE_URL, {
+                action: 'getReport',
+                id: reportId
+            });
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || '리포트를 찾을 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('getReport error:', error);
+            throw error;
+        }
+    },
+
+    // 콘텐츠 데이터 조회
+    async getContent() {
+        try {
+            const result = await jsonp(CONFIG.API_BASE_URL, {
+                action: 'getContent'
+            });
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || '콘텐츠를 가져올 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('getContent error:', error);
+            throw error;
+        }
+    },
+
+    // 설문 응답 제출 (POST 데이터를 GET으로 변환)
+    async submitResponse(reportId, responses) {
+        try {
+            const result = await jsonp(CONFIG.API_BASE_URL, {
+                action: 'submitResponse',
+                reportId: reportId,
+                responses: JSON.stringify(responses)
+            });
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || '응답 제출에 실패했습니다.');
+            }
+        } catch (error) {
+            console.error('submitResponse error:', error);
+            throw error;
+        }
+    }
+};
+
 // 설문 페이지 초기화
 async function initializeFeedbackPage() {
     try {
@@ -182,7 +294,7 @@ function setupEventListeners() {
                 // 선택 해제
                 checkbox.checked = false;
                 this.classList.remove('selected');
-                selectedKeywords = selectedKeywords.filter(k => k !== keyword);
+                selectedKeywords.filter(k => k !== keyword);
             } else {
                 // 선택 (3개 제한)
                 if (selectedKeywords.length >= 3) {

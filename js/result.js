@@ -4,6 +4,122 @@ let reportData = null;
 let contentData = null;
 let analysisResult = null;
 let radarChart = null;
+let updateInterval = null;
+
+// Configuration
+const CONFIG = {
+    // Google Apps Script 웹 앱 URL - 실제 배포 후 업데이트 필요
+    API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
+    MIN_RESPONSES: 5,
+    UPDATE_INTERVAL: 30000 // 30초마다 업데이트
+};
+
+// 유틸리티 함수들
+const Utils = {
+    // 날짜 포맷팅
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('ko-KR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    },
+
+    // 로딩 상태 표시
+    showLoading(element, message = '로딩 중...') {
+        element.innerHTML = `<div class="loading">${message}</div>`;
+    },
+
+    // 클립보드 복사
+    async copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch (err) {
+            console.error('클립보드 복사 실패:', err);
+            return false;
+        }
+    }
+};
+
+// JSONP 헬퍼 함수
+function jsonp(url, params = {}) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+        
+        // 콜백 함수 등록
+        window[callbackName] = function(data) {
+            delete window[callbackName];
+            document.body.removeChild(script);
+            resolve(data);
+        };
+        
+        // URL 파라미터 구성
+        const queryParams = new URLSearchParams(params);
+        queryParams.append('callback', callbackName);
+        
+        // 스크립트 태그 생성
+        const script = document.createElement('script');
+        script.src = url + '?' + queryParams.toString();
+        script.onerror = function() {
+            delete window[callbackName];
+            document.body.removeChild(script);
+            reject(new Error('JSONP request failed'));
+        };
+        
+        document.body.appendChild(script);
+        
+        // 타임아웃 설정 (10초)
+        setTimeout(() => {
+            if (window[callbackName]) {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                reject(new Error('JSONP request timeout'));
+            }
+        }, 10000);
+    });
+}
+
+// API 함수들
+const API = {
+    // 리포트 조회
+    async getReport(reportId) {
+        try {
+            const result = await jsonp(CONFIG.API_BASE_URL, {
+                action: 'getReport',
+                id: reportId
+            });
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || '리포트를 찾을 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('getReport error:', error);
+            throw error;
+        }
+    },
+
+    // 콘텐츠 데이터 조회
+    async getContent() {
+        try {
+            const result = await jsonp(CONFIG.API_BASE_URL, {
+                action: 'getContent'
+            });
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || '콘텐츠를 가져올 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('getContent error:', error);
+            throw error;
+        }
+    }
+};
 
 // 결과 페이지 초기화
 async function initializeResultPage() {
@@ -154,7 +270,7 @@ function updateResponseCount() {
 // 주기적 업데이트 시작
 function startPeriodicUpdate() {
     // 30초마다 데이터 새로고침
-    setInterval(async () => {
+    updateInterval = setInterval(async () => {
         try {
             const newReportData = await API.getReport(reportId);
             const oldResponseCount = reportData.responses ? reportData.responses.length : 0;
@@ -167,7 +283,7 @@ function startPeriodicUpdate() {
         } catch (error) {
             console.error('데이터 업데이트 실패:', error);
         }
-    }, 30000);
+    }, CONFIG.UPDATE_INTERVAL);
 }
 
 // 결과 화면 표시
@@ -438,4 +554,7 @@ function shareResult() {
             }
         });
     }
-} 
+}
+
+// DOM 로드 완료 후 초기화
+document.addEventListener('DOMContentLoaded', initializeResultPage); 

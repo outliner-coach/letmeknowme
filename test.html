@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 연결 테스트 - Let me Know me</title>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        input[type="text"] {
+            width: 200px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 API 연결 테스트</h1>
+        <p>Google Apps Script API와의 연결을 테스트합니다. (JSONP 방식)</p>
+        
+        <!-- 콘텐츠 조회 테스트 -->
+        <div class="test-section">
+            <h3>1. 콘텐츠 데이터 조회</h3>
+            <p>질문과 성격 유형 데이터를 가져옵니다.</p>
+            <button onclick="testGetContent()">콘텐츠 조회 테스트</button>
+            <div id="content-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- 리포트 생성 테스트 -->
+        <div class="test-section">
+            <h3>2. 리포트 생성</h3>
+            <p>새로운 설문 리포트를 생성합니다.</p>
+            <input type="text" id="test-name" placeholder="테스트 이름" value="테스트 사용자">
+            <button onclick="testCreateReport()">리포트 생성 테스트</button>
+            <div id="create-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- 리포트 목록 조회 테스트 -->
+        <div class="test-section">
+            <h3>3. 리포트 목록 조회</h3>
+            <p>최근 생성된 리포트 목록을 가져옵니다.</p>
+            <button onclick="testGetReports()">리포트 목록 조회</button>
+            <div id="reports-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- 특정 리포트 조회 테스트 -->
+        <div class="test-section">
+            <h3>4. 특정 리포트 조회</h3>
+            <p>특정 ID의 리포트를 조회합니다.</p>
+            <input type="text" id="report-id" placeholder="리포트 ID">
+            <button onclick="testGetReport()">리포트 조회</button>
+            <div id="report-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- 응답 제출 테스트 -->
+        <div class="test-section">
+            <h3>5. 설문 응답 제출</h3>
+            <p>테스트 응답을 제출합니다.</p>
+            <input type="text" id="response-report-id" placeholder="리포트 ID">
+            <button onclick="testSubmitResponse()">응답 제출 테스트</button>
+            <div id="response-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- 전체 테스트 -->
+        <div class="test-section">
+            <h3>6. 전체 워크플로우 테스트</h3>
+            <p>리포트 생성 → 응답 제출 → 결과 조회 순서로 테스트합니다.</p>
+            <button onclick="testFullWorkflow()" id="workflow-btn">전체 워크플로우 테스트</button>
+            <div id="workflow-result" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec';
+        
+        // JSONP 헬퍼 함수
+        function jsonp(url, params = {}) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                
+                // 콜백 함수 등록
+                window[callbackName] = function(data) {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    resolve(data);
+                };
+                
+                // URL 파라미터 구성
+                const queryParams = new URLSearchParams(params);
+                queryParams.append('callback', callbackName);
+                
+                // 스크립트 태그 생성
+                const script = document.createElement('script');
+                script.src = url + '?' + queryParams.toString();
+                script.onerror = function() {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    reject(new Error('JSONP request failed'));
+                };
+                
+                document.body.appendChild(script);
+                
+                // 타임아웃 설정 (15초)
+                setTimeout(() => {
+                    if (window[callbackName]) {
+                        delete window[callbackName];
+                        document.body.removeChild(script);
+                        reject(new Error('JSONP request timeout'));
+                    }
+                }, 15000);
+            });
+        }
+        
+        // 결과 표시 헬퍼
+        function showResult(elementId, result, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${isError ? 'error' : 'success'}`;
+            element.textContent = typeof result === 'object' ? JSON.stringify(result, null, 2) : result;
+        }
+        
+        function showLoading(elementId, message = '요청 중...') {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = 'result loading';
+            element.textContent = message;
+        }
+        
+        // 1. 콘텐츠 조회 테스트
+        async function testGetContent() {
+            showLoading('content-result', '콘텐츠 데이터 조회 중...');
+            
+            try {
+                const result = await jsonp(API_BASE_URL, {
+                    action: 'getContent'
+                });
+                showResult('content-result', result);
+            } catch (error) {
+                showResult('content-result', `오류: ${error.message}`, true);
+            }
+        }
+        
+        // 2. 리포트 생성 테스트
+        async function testCreateReport() {
+            const name = document.getElementById('test-name').value.trim();
+            if (!name) {
+                showResult('create-result', '이름을 입력해주세요.', true);
+                return;
+            }
+            
+            showLoading('create-result', '리포트 생성 중...');
+            
+            try {
+                const result = await jsonp(API_BASE_URL, {
+                    action: 'createReport',
+                    requesterName: name
+                });
+                showResult('create-result', result);
+                
+                // 생성된 리포트 ID를 다른 테스트에서 사용할 수 있도록 설정
+                if (result.success && result.data && result.data.id) {
+                    document.getElementById('report-id').value = result.data.id;
+                    document.getElementById('response-report-id').value = result.data.id;
+                }
+            } catch (error) {
+                showResult('create-result', `오류: ${error.message}`, true);
+            }
+        }
+        
+        // 3. 리포트 목록 조회 테스트
+        async function testGetReports() {
+            showLoading('reports-result', '리포트 목록 조회 중...');
+            
+            try {
+                const result = await jsonp(API_BASE_URL, {
+                    action: 'getReports'
+                });
+                showResult('reports-result', result);
+            } catch (error) {
+                showResult('reports-result', `오류: ${error.message}`, true);
+            }
+        }
+        
+        // 4. 특정 리포트 조회 테스트
+        async function testGetReport() {
+            const reportId = document.getElementById('report-id').value.trim();
+            if (!reportId) {
+                showResult('report-result', '리포트 ID를 입력해주세요.', true);
+                return;
+            }
+            
+            showLoading('report-result', '리포트 조회 중...');
+            
+            try {
+                const result = await jsonp(API_BASE_URL, {
+                    action: 'getReport',
+                    id: reportId
+                });
+                showResult('report-result', result);
+            } catch (error) {
+                showResult('report-result', `오류: ${error.message}`, true);
+            }
+        }
+        
+        // 5. 설문 응답 제출 테스트
+        async function testSubmitResponse() {
+            const reportId = document.getElementById('response-report-id').value.trim();
+            if (!reportId) {
+                showResult('response-result', '리포트 ID를 입력해주세요.', true);
+                return;
+            }
+            
+            showLoading('response-result', '응답 제출 중...');
+            
+            // 테스트 응답 데이터
+            const testResponse = {
+                reportId: reportId,
+                respondentName: '테스트 응답자',
+                respondentRelation: '친구',
+                responses: [1, 2, 3, 4, 5, 1, 2, 3, 4, 5], // 10개 질문에 대한 답변
+                additionalComment: '테스트 응답입니다.',
+                submittedAt: new Date().toISOString()
+            };
+            
+            try {
+                const result = await jsonp(API_BASE_URL, {
+                    action: 'submitResponse',
+                    reportId: reportId,
+                    responses: JSON.stringify(testResponse)
+                });
+                showResult('response-result', result);
+            } catch (error) {
+                showResult('response-result', `오류: ${error.message}`, true);
+            }
+        }
+        
+        // 6. 전체 워크플로우 테스트
+        async function testFullWorkflow() {
+            const workflowBtn = document.getElementById('workflow-btn');
+            const resultElement = document.getElementById('workflow-result');
+            
+            workflowBtn.disabled = true;
+            workflowBtn.textContent = '테스트 진행 중...';
+            
+            let log = '';
+            
+            try {
+                // 1단계: 리포트 생성
+                log += '1단계: 리포트 생성 중...\n';
+                showResult('workflow-result', log);
+                
+                const createResult = await jsonp(API_BASE_URL, {
+                    action: 'createReport',
+                    requesterName: '워크플로우 테스트'
+                });
+                
+                if (!createResult.success) {
+                    throw new Error('리포트 생성 실패: ' + createResult.error);
+                }
+                
+                const reportId = createResult.data.id;
+                log += `✅ 리포트 생성 완료 (ID: ${reportId})\n\n`;
+                showResult('workflow-result', log);
+                
+                // 2단계: 응답 제출
+                log += '2단계: 테스트 응답 제출 중...\n';
+                showResult('workflow-result', log);
+                
+                const testResponse = {
+                    reportId: reportId,
+                    respondentName: '워크플로우 테스터',
+                    respondentRelation: '테스터',
+                    responses: [1, 2, 3, 4, 5, 6, 1, 2, 3, 4],
+                    additionalComment: '워크플로우 테스트 응답입니다.',
+                    submittedAt: new Date().toISOString()
+                };
+                
+                const submitResult = await jsonp(API_BASE_URL, {
+                    action: 'submitResponse',
+                    reportId: reportId,
+                    responses: JSON.stringify(testResponse)
+                });
+                
+                if (!submitResult.success) {
+                    throw new Error('응답 제출 실패: ' + submitResult.error);
+                }
+                
+                log += '✅ 응답 제출 완료\n\n';
+                showResult('workflow-result', log);
+                
+                // 3단계: 리포트 조회
+                log += '3단계: 업데이트된 리포트 조회 중...\n';
+                showResult('workflow-result', log);
+                
+                const getResult = await jsonp(API_BASE_URL, {
+                    action: 'getReport',
+                    id: reportId
+                });
+                
+                if (!getResult.success) {
+                    throw new Error('리포트 조회 실패: ' + getResult.error);
+                }
+                
+                log += '✅ 리포트 조회 완료\n\n';
+                log += '🎉 전체 워크플로우 테스트 성공!\n\n';
+                log += '최종 결과:\n';
+                log += JSON.stringify(getResult.data, null, 2);
+                
+                showResult('workflow-result', log);
+                
+            } catch (error) {
+                log += `❌ 오류 발생: ${error.message}\n`;
+                showResult('workflow-result', log, true);
+            } finally {
+                workflowBtn.disabled = false;
+                workflowBtn.textContent = '전체 워크플로우 테스트';
+            }
+        }
+    </script>
+</body>
+</html> 
