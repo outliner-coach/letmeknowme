@@ -1,7 +1,7 @@
 // 공통 설정
 const CONFIG = {
     // Google Apps Script 웹 앱 URL - 실제 배포 후 업데이트 필요
-    API_BASE_URL: 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec',
+    API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
     MIN_RESPONSES: 5
 };
 
