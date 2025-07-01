@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>친구에 대한 설문 - Let me Know me</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="page-title">친구에 대한 설문</h1>
+            <p class="subtitle">솔직하고 재미있게 답해주세요! 🤗</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p class="progress-text"><span id="current-question">1</span> / 10</p>
+        </header>
+
+        <main>
+            <form id="feedback-form">
+                <!-- Q1-Q9 질문들이 동적으로 생성될 영역 -->
+                <div id="questions-container"></div>
+
+                <!-- Q10 키워드 선택 질문 -->
+                <div class="question-section" id="q10-section">
+                    <h3 class="question-title" id="q10-title">로딩 중...</h3>
+                    <p class="keyword-instruction">3개의 키워드를 선택해주세요</p>
+                    <div id="keywords-container" class="keywords-grid">
+                        <!-- 키워드들이 동적으로 생성됩니다 -->
+                    </div>
+                    <p class="selected-count">선택됨: <span id="selected-count">0</span>/3</p>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" id="submit-feedback-btn" class="btn-primary" disabled>
+                        피드백 제출하기
+                    </button>
+                </div>
+            </form>
+
+            <!-- 제출 완료 메시지 -->
+            <div id="success-message" class="success-section" style="display: none;">
+                <div class="success-content">
+                    <h2>🙏 소중한 피드백 감사합니다!</h2>
+                    <p>회답이 성공적으로 제출되었습니다.</p>
+                    <p>친구가 더 많은 피드백을 받을 수 있도록 링크를 공유해주세요!</p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 Let me Know me</p>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/feedback.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeFeedbackPage();
+        });
+    </script>
+</body>
+</html> 

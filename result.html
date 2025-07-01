@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나의 리포트 - Let me Know me</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 대기 화면 -->
+        <div id="waiting-view" class="waiting-view">
+            <header>
+                <h1 id="waiting-title">님의 리포트</h1>
+                <p class="subtitle">친구들의 피드백을 기다리고 있어요</p>
+            </header>
+
+            <main>
+                <div class="waiting-content">
+                    <div class="response-counter">
+                        <h2>현재 응답 수</h2>
+                        <div class="counter-display">
+                            <span id="response-count">0</span>
+                            <span class="counter-label">명</span>
+                        </div>
+                        <p class="counter-description">
+                            <span id="min-responses">5</span>명 이상의 응답이 모이면 결과를 확인할 수 있어요
+                        </p>
+                    </div>
+
+                    <div class="share-section">
+                        <h3>더 많은 피드백을 받아보세요!</h3>
+                        <div class="link-box">
+                            <input type="text" id="share-link" readonly placeholder="설문 링크를 불러오는 중...">
+                            <button class="copy-btn" data-target="share-link">복사</button>
+                        </div>
+                        <p class="share-help">이 링크를 친구들에게 공유해보세요</p>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="view-result-btn" class="btn-primary" disabled>
+                            결과 보기
+                        </button>
+                        <button id="refresh-btn" class="btn-secondary">
+                            새로고침
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- 결과 리포트 화면 -->
+        <div id="report-view" class="report-view" style="display: none;">
+            <header>
+                <h1 id="report-title">님의 피드백 리포트</h1>
+                <p class="subtitle">친구들이 보는 당신의 모습</p>
+            </header>
+
+            <main>
+                <!-- 대표 이미지 섹션 -->
+                <section class="main-archetype">
+                    <h2>🎯 대표 이미지</h2>
+                    <div class="archetype-card main">
+                        <h3 id="main-archetype-name">분석 중...</h3>
+                        <p id="main-archetype-desc">분석 중...</p>
+                        <div class="archetype-percentage">
+                            <span id="main-percentage">0</span>%
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 잠재적 매력 섹션 -->
+                <section class="sub-archetype">
+                    <h2>✨ 잠재적 매력</h2>
+                    <div class="archetype-card sub">
+                        <h3 id="sub-archetype-name">분석 중...</h3>
+                        <p id="sub-archetype-desc">분석 중...</p>
+                        <div class="archetype-percentage">
+                            <span id="sub-percentage">0</span>%
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 레이더 차트 섹션 -->
+                <section class="radar-chart-section">
+                    <h2>📊 성향 분석</h2>
+                    <div class="chart-container">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <div class="legend-item"><span class="legend-color leader"></span>든든한 리더</div>
+                        <div class="legend-item"><span class="legend-color counselor"></span>따뜻한 상담가</div>
+                        <div class="legend-item"><span class="legend-color artist"></span>창의적인 아티스트</div>
+                        <div class="legend-item"><span class="legend-color energizer"></span>긍정의 에너자이저</div>
+                        <div class="legend-item"><span class="legend-color strategist"></span>치밀한 전략가</div>
+                        <div class="legend-item"><span class="legend-color explorer"></span>자유로운 탐험가</div>
+                    </div>
+                </section>
+
+                <!-- 키워드 클라우드 섹션 -->
+                <section class="keywords-section">
+                    <h2>🏷️ 핵심 키워드</h2>
+                    <div id="keywords-cloud" class="keywords-cloud">
+                        <!-- 키워드들이 동적으로 생성됩니다 -->
+                    </div>
+                </section>
+
+                <!-- 종합 코멘트 섹션 -->
+                <section class="final-comment">
+                    <h2>💬 종합 코멘트</h2>
+                    <div class="comment-card">
+                        <p id="final-comment-text">분석 중...</p>
+                    </div>
+                </section>
+
+                <!-- 통계 정보 -->
+                <section class="statistics">
+                    <h2>📈 응답 통계</h2>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-number" id="total-responses">0</span>
+                            <span class="stat-label">총 응답 수</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="analysis-date"></span>
+                            <span class="stat-label">분석 일시</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 액션 버튼 -->
+                <div class="report-actions">
+                    <button id="share-result-btn" class="btn-primary">결과 공유하기</button>
+                    <button id="back-to-main-btn" class="btn-secondary">메인으로</button>
+                </div>
+            </main>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 Let me Know me</p>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/result.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeResultPage();
+        });
+    </script>
+</body>
+</html> 
