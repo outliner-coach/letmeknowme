@@ -10,7 +10,7 @@ let responses = {};
 const FEEDBACK_CONFIG = {
     // Google Apps Script 웹 앱 URL - 실제 배포 후 업데이트 필요
     API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
-    MIN_RESPONSES: 5
+    MIN_RESPONSES: 3
 };
 
 // 설문 페이지 전용 유틸리티 함수들
@@ -139,7 +139,7 @@ async function initializeFeedbackPage() {
         
         // 리포트 정보 가져오기 (요청자 이름)
         const reportData = await FeedbackAPI.getReport(reportId);
-        requesterName = reportData.requester_name;
+        requesterName = reportData.requesterName;
 
         // 페이지 제목 업데이트
         updatePageTitle();
@@ -357,26 +357,25 @@ function setupEventListeners() {
         });
     });
 
-    // 키워드 선택 이벤트
-    document.querySelectorAll('.keyword-item').forEach(item => {
-        item.addEventListener('click', function() {
-            const checkbox = this.querySelector('input[type="checkbox"]');
-            const keyword = this.getAttribute('data-keyword');
+    // 키워드 선택 이벤트 - 체크박스에 직접 등록하여 이중 클릭 방지
+    document.querySelectorAll('.keyword-item input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const keywordItem = this.closest('.keyword-item');
+            const keyword = keywordItem.getAttribute('data-keyword');
 
-            if (checkbox.checked) {
-                // 선택 해제
-                checkbox.checked = false;
-                this.classList.remove('selected');
-                selectedKeywords = selectedKeywords.filter(k => k !== keyword);
-            } else {
-                // 선택 (3개 제한)
+            if (this.checked) {
+                // 선택 (3개 제한 확인)
                 if (selectedKeywords.length >= 3) {
                     alert('최대 3개까지만 선택할 수 있습니다.');
+                    this.checked = false; // 체크박스 상태 되돌리기
                     return;
                 }
-                checkbox.checked = true;
-                this.classList.add('selected');
+                keywordItem.classList.add('selected');
                 selectedKeywords.push(keyword);
+            } else {
+                // 선택 해제
+                keywordItem.classList.remove('selected');
+                selectedKeywords = selectedKeywords.filter(k => k !== keyword);
             }
 
             updateKeywordCount();

@@ -91,34 +91,74 @@ function handleRequest(e) {
  */
 function getContent() {
   try {
+    console.log('getContent 함수 호출됨');
+    
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(CONTENTS_SHEET);
     
     if (!sheet) {
-      // contents 시트가 없으면 초기 데이터 생성
+      console.log('콘텐츠 시트가 없음, 초기화 시도');
       initializeContentData();
-      return getContent(); // 재귀 호출
+      // 초기화 후 다시 시트 가져오기
+      sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(CONTENTS_SHEET);
+      if (!sheet) {
+        throw new Error(`${CONTENTS_SHEET} 시트를 생성할 수 없습니다.`);
+      }
     }
     
+    // 시트 데이터 읽기
     const data = sheet.getDataRange().getValues();
-    const content = {};
+    const contentData = {};
     
-    // 키-값 쌍으로 데이터 변환
+    console.log(`콘텐츠 데이터 행 수: ${data.length}`);
+    
+    // 데이터를 키-값 쌍으로 변환
     data.forEach(row => {
-      const [key, value] = row;
-      if (key && value) {
-        content[key] = value;
+      if (row.length >= 2 && row[0] && row[1]) {
+        const key = row[0];
+        let value = row[1];
+        
+        // JSON 문자열인 경우 파싱
+        if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
+          try {
+            value = JSON.parse(value);
+          } catch (e) {
+            // JSON 파싱 실패 시 문자열 그대로 사용
+          }
+        }
+        
+        contentData[key] = value;
+      }
+    });
+    
+    console.log(`변환된 콘텐츠 데이터 키 수: ${Object.keys(contentData).length}`);
+    console.log('주요 키들:', Object.keys(contentData).slice(0, 10));
+    
+    // 필수 데이터 확인 및 기본값 설정
+    const requiredTypes = ['A', 'B', 'C', 'D', 'E', 'F'];
+    requiredTypes.forEach(type => {
+      if (!contentData[`type_${type}_name`]) {
+        contentData[`type_${type}_name`] = getDefaultTypeName(type);
+      }
+      if (!contentData[`type_${type}_description`]) {
+        contentData[`type_${type}_description`] = getDefaultTypeDescription(type);
       }
     });
     
     return {
       success: true,
-      data: content
+      data: contentData
     };
+    
   } catch (error) {
     console.error('getContent error:', error);
+    
+    // 에러 발생 시 기본 데이터 반환
+    const defaultData = getDefaultContentData();
+    
     return {
-      success: false,
-      error: '콘텐츠 데이터를 가져올 수 없습니다: ' + error.message
+      success: true,
+      data: defaultData,
+      warning: '기본 데이터를 사용합니다: ' + error.message
     };
   }
 }
@@ -131,201 +171,73 @@ function initializeContentData() {
     const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
     let sheet = spreadsheet.getSheetByName(CONTENTS_SHEET);
     
-    if (!sheet) {
-      sheet = spreadsheet.insertSheet(CONTENTS_SHEET);
+    if (sheet) {
+      console.log('기존 콘텐츠 시트를 삭제하고 새로 생성합니다.');
+      spreadsheet.deleteSheet(sheet);
     }
     
-    // 기존 데이터 삭제
-    sheet.clear();
-    
-    // 헤더 추가
-    sheet.appendRow(['key', 'value']);
+    sheet = spreadsheet.insertSheet(CONTENTS_SHEET);
     
     // 질문 데이터
     const questions = [
-      ['q1_text', '이 사람은 어떤 상황에서 가장 빛을 발하나요?'],
-      ['q1_choice_A', '혼자서 깊이 생각할 때'],
-      ['q1_choice_B', '사람들과 함께 있을 때'],
-      ['q1_choice_C', '새로운 것을 시도할 때'],
-      ['q1_choice_D', '계획을 세우고 실행할 때'],
-      ['q1_choice_E', '문제를 해결할 때'],
-      ['q1_choice_F', '자유롭게 행동할 때'],
-      
-      ['q2_text', '이 사람의 의사결정 스타일은?'],
-      ['q2_choice_A', '신중하게 분석한 후 결정'],
-      ['q2_choice_B', '다른 사람들과 상의 후 결정'],
-      ['q2_choice_C', '직감을 따라 결정'],
-      ['q2_choice_D', '논리적 근거를 바탕으로 결정'],
-      ['q2_choice_E', '데이터와 정보를 분석 후 결정'],
-      ['q2_choice_F', '상황에 따라 유연하게 결정'],
-      
-      ['q3_text', '이 사람이 스트레스를 받을 때 보이는 반응은?'],
-      ['q3_choice_A', '혼자만의 시간을 갖고 싶어함'],
-      ['q3_choice_B', '누군가와 대화하고 싶어함'],
-      ['q3_choice_C', '새로운 활동으로 전환하려 함'],
-      ['q3_choice_D', '체계적으로 문제를 해결하려 함'],
-      ['q3_choice_E', '원인을 분석하고 대책을 세움'],
-      ['q3_choice_F', '환경을 바꾸거나 여행을 떠나고 싶어함'],
-      
-      ['q4_text', '이 사람의 커뮤니케이션 스타일은?'],
-      ['q4_choice_A', '말수가 적지만 핵심을 짚어냄'],
-      ['q4_choice_B', '따뜻하고 공감적으로 소통'],
-      ['q4_choice_C', '창의적이고 독창적인 표현'],
-      ['q4_choice_D', '명확하고 논리적으로 설명'],
-      ['q4_choice_E', '구체적인 데이터와 근거 제시'],
-      ['q4_choice_F', '자유분방하고 솔직한 표현'],
-      
-      ['q5_text', '이 사람이 가장 중요하게 생각하는 가치는?'],
-      ['q5_choice_A', '진실과 정직'],
-      ['q5_choice_B', '인간관계와 화합'],
-      ['q5_choice_C', '창의성과 독창성'],
-      ['q5_choice_D', '성취와 성공'],
-      ['q5_choice_E', '효율성과 완성도'],
-      ['q5_choice_F', '자유와 모험'],
-      
-      ['q6_text', '이 사람의 업무 스타일은?'],
-      ['q6_choice_A', '혼자 집중해서 깊이 파고듦'],
-      ['q6_choice_B', '팀워크를 중시하며 협력함'],
-      ['q6_choice_C', '새로운 아이디어를 제안함'],
-      ['q6_choice_D', '목표 달성을 위해 체계적으로 접근'],
-      ['q6_choice_E', '완벽한 결과를 위해 세심하게 준비'],
-      ['q6_choice_F', '유연하게 상황에 맞춰 적응'],
-      
-      ['q7_text', '이 사람이 새로운 환경에 적응하는 방식은?'],
-      ['q7_choice_A', '관찰하며 천천히 적응'],
-      ['q7_choice_B', '사람들과 친해지며 적응'],
-      ['q7_choice_C', '새로운 시도를 통해 적응'],
-      ['q7_choice_D', '계획을 세워 단계별로 적응'],
-      ['q7_choice_E', '정보를 수집하고 분석하며 적응'],
-      ['q7_choice_F', '자연스럽게 흘러가며 적응'],
-      
-      ['q8_text', '이 사람의 리더십 스타일은?'],
-      ['q8_choice_A', '모범을 보이며 이끄는 타입'],
-      ['q8_choice_B', '팀원들을 돌보며 이끄는 타입'],
-      ['q8_choice_C', '비전을 제시하며 이끄는 타입'],
-      ['q8_choice_D', '목표를 설정하고 달성하도록 이끄는 타입'],
-      ['q8_choice_E', '전략을 세우고 실행하도록 이끄는 타입'],
-      ['q8_choice_F', '자율성을 주며 이끄는 타입'],
-      
-      ['q9_text', '이 사람이 가장 행복해하는 순간은?'],
-      ['q9_choice_A', '깊이 있는 대화를 나눌 때'],
-      ['q9_choice_B', '소중한 사람들과 함께 있을 때'],
-      ['q9_choice_C', '새로운 것을 창조할 때'],
-      ['q9_choice_D', '목표를 달성했을 때'],
-      ['q9_choice_E', '완벽한 결과를 만들어냈을 때'],
-      ['q9_choice_F', '자유롭게 여행하거나 모험할 때'],
-      
-      // Q10 키워드 선택 질문
-      ['q10_text', '마지막으로, 이 사람을 가장 잘 표현하는 키워드 3개를 선택해주세요.'],
-      
-      // 키워드 목록 (JSON 형태)
-      ['keyword_list', JSON.stringify([
-        '리더십', '책임감', '추진력', '결단력', '안정감', '든든함',
-        '공감능력', '배려심', '다정함', '따뜻함', '상담능력', '치유력',
-        '창의력', '독창성', '심미안', '예술감각', '상상력', '영감',
-        '긍정적', '유머감각', '사교성', '활발함', '에너지', '열정',
-        '분석력', '논리적', '효율성', '체계적', '계획성', '전략적',
-        '도전적', '자유로움', '호기심', '모험심', '개방성', '유연함'
-      ])],
-
-      // 종합 코멘트 (주요 성격 유형 조합)
-      ['comment_A_B', '든든한 리더십과 따뜻한 배려심을 동시에 갖춘 당신! 사람들에게 신뢰받는 리더이면서도 따뜻한 마음으로 다가가는 매력적인 사람입니다.'],
-      ['comment_A_C', '안정감 있는 리더십과 창의적인 아이디어가 조화를 이루는 당신! 체계적이면서도 독창적인 접근으로 새로운 가능성을 열어가는 사람입니다.'],
-      ['comment_A_D', '든든한 리더십과 긍정적인 에너지가 만나 더욱 빛나는 당신! 사람들에게 희망과 안정감을 동시에 주는 매력적인 리더입니다.'],
-      ['comment_A_E', '리더십과 전략적 사고가 완벽하게 결합된 당신! 체계적이고 논리적인 접근으로 목표를 달성해나가는 뛰어난 리더입니다.'],
-      ['comment_A_F', '안정감과 자유로운 도전정신이 조화를 이루는 당신! 든든함과 모험심을 동시에 갖춘 독특하고 매력적인 사람입니다.'],
-      
-      ['comment_B_C', '따뜻한 마음과 창의적인 감성이 어우러진 당신! 사람들의 마음을 치유하면서도 아름다운 영감을 주는 특별한 존재입니다.'],
-      ['comment_B_D', '따뜻한 배려심과 긍정적인 에너지가 만나 더욱 빛나는 당신! 사람들에게 위로와 희망을 동시에 선사하는 힐링 에너자이저입니다.'],
-      ['comment_B_E', '따뜻한 마음과 체계적인 사고가 조화를 이루는 당신! 감정적 지지와 실용적 조언을 모두 제공하는 완벽한 상담가입니다.'],
-      ['comment_B_F', '따뜻한 배려심과 자유로운 영혼이 만나 독특한 매력을 발산하는 당신! 열린 마음으로 사람들을 포용하는 자유로운 치유자입니다.'],
-      
-      ['comment_C_D', '창의적인 아이디어와 긍정적인 에너지가 폭발하는 당신! 상상력과 활력이 넘치는 영감의 원천이자 분위기 메이커입니다.'],
-      ['comment_C_E', '창의력과 논리적 사고가 완벽하게 결합된 당신! 예술적 감각과 체계적 접근으로 혁신적인 결과를 만들어내는 크리에이터입니다.'],
-      ['comment_C_F', '창의적인 상상력과 자유로운 탐험정신이 만나 무한한 가능성을 보여주는 당신! 경계를 넘나들며 새로운 세계를 창조하는 아티스트입니다.'],
-      
-      ['comment_D_E', '긍정적인 에너지와 체계적인 계획이 조화를 이루는 당신! 열정적이면서도 효율적으로 목표를 달성해나가는 완벽한 실행자입니다.'],
-      ['comment_D_F', '긍정적인 에너지와 자유로운 도전정신이 만나 끝없는 활력을 보여주는 당신! 모험을 즐기며 새로운 경험을 추구하는 자유로운 영혼입니다.'],
-      
-      ['comment_E_F', '체계적인 전략과 자유로운 탐험정신이 독특하게 조화를 이루는 당신! 계획성과 유연성을 모두 갖춘 균형잡힌 사고의 소유자입니다.'],
+      ['q1', '어려운 상황에서 이 사람의 반응은?'],
+      ['q2', '이 사람과 함께할 때 가장 즐거운 순간은?'],
+      ['q3', '이 사람의 가장 큰 매력은?'],
+      ['q4', '이 사람이 가장 중요하게 여기는 것은?'],
+      ['q5', '이 사람의 의사결정 방식은?'],
+      ['q6', '이 사람과의 관계에서 느끼는 점은?'],
+      ['q7', '이 사람이 스트레스를 받을 때는?'],
+      ['q8', '이 사람의 소통 스타일은?'],
+      ['q9', '이 사람을 한 단어로 표현한다면?']
     ];
     
-    // 성격 유형 데이터
+    // 성격 유형 정보 (프론트엔드에서 사용하는 키 형식)
     const personalityTypes = [
       ['type_A_name', '든든한 리더'],
-      ['type_A_description', '신중하고 책임감이 강한 당신! 깊이 있는 사고와 진정성으로 주변 사람들에게 신뢰를 주는 든든한 존재입니다.'],
-      ['type_A_trait1', '깊이 있는 사고력'],
-      ['type_A_trait2', '강한 책임감'],
-      ['type_A_trait3', '진정성 있는 소통'],
-      ['type_A_color', '#2E7D32'],
-      
+      ['type_A_description', '책임감이 강하고 신뢰할 수 있는 리더십을 가진 사람입니다. 어려운 상황에서도 침착함을 유지하며 주변 사람들에게 안정감을 줍니다.'],
       ['type_B_name', '따뜻한 상담가'],
-      ['type_B_description', '따뜻하고 공감능력이 뛰어난 당신! 사람들의 마음을 이해하고 위로해주는 따뜻한 상담가 같은 존재입니다.'],
-      ['type_B_trait1', '뛰어난 공감능력'],
-      ['type_B_trait2', '따뜻한 배려심'],
-      ['type_B_trait3', '화합을 추구하는 성향'],
-      ['type_B_color', '#FF6B6B'],
-      
+      ['type_B_description', '공감 능력이 뛰어나고 다른 사람의 마음을 이해하는 데 특별한 재능이 있습니다. 따뜻한 관심과 배려로 주변을 감싸줍니다.'],
       ['type_C_name', '창의적인 아티스트'],
-      ['type_C_description', '창의적이고 독창적인 당신! 새로운 아이디어와 독특한 시각으로 세상을 바라보는 예술가 같은 존재입니다.'],
-      ['type_C_trait1', '뛰어난 창의성'],
-      ['type_C_trait2', '독창적인 사고'],
-      ['type_C_trait3', '예술적 감각'],
-      ['type_C_color', '#9C27B0'],
-      
+      ['type_C_description', '독창적인 아이디어와 예술적 감각이 뛰어난 창조적인 사람입니다. 새로운 관점으로 세상을 바라보며 영감을 전달합니다.'],
       ['type_D_name', '긍정의 에너자이저'],
-      ['type_D_description', '에너지가 넘치고 목표지향적인 당신! 긍정적인 에너지로 주변을 활기차게 만드는 에너자이저 같은 존재입니다.'],
-      ['type_D_trait1', '강한 추진력'],
-      ['type_D_trait2', '목표 지향적'],
-      ['type_D_trait3', '긍정적 에너지'],
-      ['type_D_color', '#FF9800'],
-      
+      ['type_D_description', '항상 밝고 긍정적인 에너지로 주변을 활기차게 만드는 사람입니다. 어떤 상황에서도 희망과 웃음을 잃지 않습니다.'],
       ['type_E_name', '치밀한 전략가'],
-      ['type_E_description', '분석적이고 체계적인 당신! 데이터와 논리를 바탕으로 완벽한 전략을 세우는 뛰어난 전략가입니다.'],
-      ['type_E_trait1', '뛰어난 분석력'],
-      ['type_E_trait2', '체계적인 사고'],
-      ['type_E_trait3', '완벽주의 성향'],
-      ['type_E_color', '#3F51B5'],
-      
+      ['type_E_description', '논리적이고 체계적인 사고로 문제를 해결하는 데 뛰어난 능력을 가진 사람입니다. 계획성 있고 신중한 접근을 중시합니다.'],
       ['type_F_name', '자유로운 탐험가'],
-      ['type_F_description', '자유롭고 모험을 좋아하는 당신! 새로운 경험과 변화를 즐기는 자유로운 탐험가 같은 존재입니다.'],
-      ['type_F_trait1', '자유로운 영혼'],
-      ['type_F_trait2', '모험을 즐기는 성향'],
-      ['type_F_trait3', '뛰어난 적응력'],
-      ['type_F_color', '#00BCD4'],
+      ['type_F_description', '새로운 경험과 모험을 추구하며 자유로운 영혼을 가진 사람입니다. 변화를 두려워하지 않고 유연하게 적응합니다.'],
+      
+      // 아키타입별 기본 코멘트
+      ['comment_A_B', '든든한 리더십과 따뜻한 배려심을 동시에 가진 완벽한 리더형입니다.'],
+      ['comment_A_C', '안정적인 리더십에 창의적 감각까지 갖춘 독특한 매력의 소유자입니다.'],
+      ['comment_A_D', '책임감 있는 리더십과 긍정적 에너지로 팀을 이끄는 천부적 리더입니다.'],
+      ['comment_A_E', '리더십과 전략적 사고를 겸비한 완벽한 조직의 중심인물입니다.'],
+      ['comment_A_F', '안정적인 리더십과 자유로운 사고의 조화가 돋보이는 유니크한 리더입니다.'],
+      ['comment_B_C', '따뜻한 감성과 창의적 영감을 주는 예술가적 기질의 상담가입니다.'],
+      ['comment_B_D', '따뜻한 배려와 긍정적 에너지로 주변을 치유하는 힐러형입니다.'],
+      ['comment_B_E', '배려심과 논리적 사고를 겸비한 완벽한 조언자입니다.'],
+      ['comment_B_F', '따뜻함과 자유로움이 조화된 독특한 매력의 소유자입니다.'],
+      ['comment_C_D', '창의적 영감과 긍정적 에너지로 주변을 밝게 만드는 아티스트입니다.'],
+      ['comment_C_E', '창의성과 논리성을 겸비한 완벽한 혁신가입니다.'],
+      ['comment_C_F', '창의적이고 자유로운 영혼으로 끊임없이 새로운 가능성을 탐구합니다.'],
+      ['comment_D_E', '긍정적 에너지와 전략적 사고로 목표를 달성하는 실행력의 달인입니다.'],
+      ['comment_D_F', '긍정적이고 자유로운 에너지로 모험을 즐기는 탐험가입니다.'],
+      ['comment_E_F', '논리적 사고와 자유로운 적응력을 겸비한 완벽한 전략가입니다.']
     ];
     
-    // 키워드 데이터
+    // 키워드 데이터 (18개 키워드)
     const keywords = [
-      ['keyword_A1', '신중한'], ['keyword_A2', '책임감 있는'], ['keyword_A3', '진실한'],
-      ['keyword_A4', '깊이 있는'], ['keyword_A5', '신뢰할 수 있는'], ['keyword_A6', '든든한'],
-      ['keyword_A7', '성실한'], ['keyword_A8', '일관성 있는'], ['keyword_A9', '원칙적인'],
-      ['keyword_A10', '차분한'], ['keyword_A11', '사려깊은'], ['keyword_A12', '안정적인'],
-      
+      ['keyword_A1', '신중한'], ['keyword_A2', '책임감 있는'], ['keyword_A3', '든든한'],
+      ['keyword_A4', '리더십 있는'], ['keyword_A5', '신뢰할 수 있는'], ['keyword_A6', '진지한'],
       ['keyword_B1', '따뜻한'], ['keyword_B2', '공감하는'], ['keyword_B3', '배려심 깊은'],
-      ['keyword_B4', '친근한'], ['keyword_B5', '이해심 많은'], ['keyword_B6', '포용력 있는'],
-      ['keyword_B7', '다정한'], ['keyword_B8', '협력적인'], ['keyword_B9', '화합을 추구하는'],
-      ['keyword_B10', '상냥한'], ['keyword_B11', '마음이 넓은'], ['keyword_B12', '인정 많은'],
-      
-      ['keyword_C1', '창의적인'], ['keyword_C2', '독창적인'], ['keyword_C3', '예술적인'],
-      ['keyword_C4', '상상력 풍부한'], ['keyword_C5', '혁신적인'], ['keyword_C6', '감성적인'],
-      ['keyword_C7', '독특한'], ['keyword_C8', '영감을 주는'], ['keyword_C9', '직관적인'],
-      ['keyword_C10', '표현력 풍부한'], ['keyword_C11', '개성 있는'], ['keyword_C12', '자유로운 사고'],
-      
-      ['keyword_D1', '에너지 넘치는'], ['keyword_D2', '목표지향적인'], ['keyword_D3', '추진력 있는'],
-      ['keyword_D4', '긍정적인'], ['keyword_D5', '열정적인'], ['keyword_D6', '도전적인'],
-      ['keyword_D7', '활동적인'], ['keyword_D8', '성취욕 강한'], ['keyword_D9', '리더십 있는'],
-      ['keyword_D10', '자신감 있는'], ['keyword_D11', '결단력 있는'], ['keyword_D12', '역동적인'],
-      
-      ['keyword_E1', '분석적인'], ['keyword_E2', '체계적인'], ['keyword_E3', '논리적인'],
-      ['keyword_E4', '치밀한'], ['keyword_E5', '완벽주의적인'], ['keyword_E6', '전략적인'],
-      ['keyword_E7', '계획적인'], ['keyword_E8', '정확한'], ['keyword_E9', '효율적인'],
-      ['keyword_E10', '객관적인'], ['keyword_E11', '신중한'], ['keyword_E12', '체계적인'],
-      
+      ['keyword_B4', '듣기 좋아하는'], ['keyword_B5', '이해심 많은'], ['keyword_B6', '친절한'],
+      ['keyword_C1', '창의적인'], ['keyword_C2', '독특한'], ['keyword_C3', '예술적인'],
+      ['keyword_C4', '상상력 풍부한'], ['keyword_C5', '영감을 주는'], ['keyword_C6', '개성 있는'],
+      ['keyword_D1', '밝은'], ['keyword_D2', '에너지 넘치는'], ['keyword_D3', '긍정적인'],
+      ['keyword_D4', '유머러스한'], ['keyword_D5', '활발한'], ['keyword_D6', '재미있는'],
+      ['keyword_E1', '논리적인'], ['keyword_E2', '체계적인'], ['keyword_E3', '계획성 있는'],
+      ['keyword_E4', '분석적인'], ['keyword_E5', '신중한'], ['keyword_E6', '완벽주의적인'],
       ['keyword_F1', '자유로운'], ['keyword_F2', '모험적인'], ['keyword_F3', '유연한'],
-      ['keyword_F4', '적응력 있는'], ['keyword_F5', '개방적인'], ['keyword_F6', '호기심 많은'],
-      ['keyword_F7', '변화를 즐기는'], ['keyword_F8', '자연스러운'], ['keyword_F9', '솔직한'],
-      ['keyword_F10', '즉흥적인'], ['keyword_F11', '여행을 좋아하는'], ['keyword_F12', '경험을 중시하는'],
+      ['keyword_F4', '적응력 있는'], ['keyword_F5', '개방적인'], ['keyword_F6', '호기심 많은']
     ];
     
     // 모든 데이터를 시트에 추가
@@ -665,4 +577,55 @@ function analyzePersonality(responses) {
     totalResponses: responses.length,
     summary: `${responses.length}명의 응답을 바탕으로 분석한 결과입니다.`
   };
+}
+
+/**
+ * Get default type name
+ */
+function getDefaultTypeName(type) {
+  const names = {
+    'A': '든든한 리더',
+    'B': '따뜻한 상담가',
+    'C': '창의적인 아티스트',
+    'D': '긍정의 에너자이저',
+    'E': '치밀한 전략가',
+    'F': '자유로운 탐험가'
+  };
+  return names[type] || `타입 ${type}`;
+}
+
+/**
+ * Get default type description
+ */
+function getDefaultTypeDescription(type) {
+  const descriptions = {
+    'A': '신중하고 책임감이 강한 당신! 깊이 있는 사고와 진정성으로 주변 사람들에게 신뢰를 주는 든든한 존재입니다.',
+    'B': '따뜻하고 공감능력이 뛰어난 당신! 사람들의 마음을 이해하고 위로해주는 따뜻한 상담가 같은 존재입니다.',
+    'C': '창의적이고 독창적인 당신! 새로운 아이디어와 독특한 시각으로 세상을 바라보는 예술가 같은 존재입니다.',
+    'D': '에너지가 넘치고 목표지향적인 당신! 긍정적인 에너지로 주변을 활기차게 만드는 에너자이저 같은 존재입니다.',
+    'E': '분석적이고 체계적인 당신! 데이터와 논리를 바탕으로 완벽한 전략을 세우는 뛰어난 전략가입니다.',
+    'F': '자유롭고 모험을 좋아하는 당신! 새로운 경험과 변화를 즐기는 자유로운 탐험가 같은 존재입니다.'
+  };
+  return descriptions[type] || `${type} 타입의 설명입니다.`;
+}
+
+/**
+ * Get default content data
+ */
+function getDefaultContentData() {
+  const data = {};
+  
+  // 타입 정보
+  const types = ['A', 'B', 'C', 'D', 'E', 'F'];
+  types.forEach(type => {
+    data[`type_${type}_name`] = getDefaultTypeName(type);
+    data[`type_${type}_description`] = getDefaultTypeDescription(type);
+  });
+  
+  // 코멘트 데이터
+  data['comment_A_B'] = '든든한 리더십과 따뜻한 배려심을 동시에 갖춘 당신! 사람들에게 신뢰받는 리더이면서도 따뜻한 마음으로 다가가는 매력적인 사람입니다.';
+  data['comment_A_C'] = '안정감 있는 리더십과 창의적인 아이디어가 조화를 이루는 당신! 체계적이면서도 독창적인 접근으로 새로운 가능성을 열어가는 사람입니다.';
+  data['comment_B_C'] = '따뜻한 마음과 창의적인 감성이 어우러진 당신! 사람들의 마음을 치유하면서도 아름다운 영감을 주는 특별한 존재입니다.';
+  
+  return data;
 } 
