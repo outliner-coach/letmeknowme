@@ -7,7 +7,7 @@
  */
 
 // Google Sheets 스프레드시트 ID
-const SPREADSHEET_ID = '16qJ9rggrNGxZt-nC4lr5SOEuzVPIjmYmqQxG3wXFyME';
+const SPREADSHEET_ID = '1mTxn4HJRZiuuLe_HpqDCP_KgXQzXGj0ZcgYz3MeVzWY';
 const FEEDBACKS_SHEET = 'feedbacks';
 const CONTENTS_SHEET = 'contents';
 
@@ -309,69 +309,61 @@ function getReports() {
 }
 
 /**
- * Get specific report data
+ * Get report data by ID
  */
 function getReport(reportId) {
   try {
-    if (!reportId) {
-      throw new Error('리포트 ID가 필요합니다.');
-    }
+    console.log('getReport 함수 호출됨, reportId:', reportId);
     
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
-    
     if (!sheet) {
       throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
     }
     
+    // 데이터 범위 가져오기
     const data = sheet.getDataRange().getValues();
-    let reportInfo = null;
-    const responses = [];
+    const headers = data[0];
+    const idIndex = headers.indexOf('id');
+    const requesterNameIndex = headers.indexOf('requester_name');
+    const responsesIndex = headers.indexOf('responses');
     
-    // 데이터 파싱
-    data.slice(1).forEach(row => {
-      const [id, type, requesterName, respondentName, respondentRelation, 
-             q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, comment, submittedAt, createdAt] = row;
-      
-      if (id === reportId) {
-        if (type === 'META') {
-          reportInfo = {
-            id: id,
-            requesterName: requesterName,
-            createdAt: createdAt
-          };
-        } else if (type === 'RESPONSE') {
-          responses.push({
-            respondentName: respondentName,
-            respondentRelation: respondentRelation,
-            responses: [q1, q2, q3, q4, q5, q6, q7, q8, q9, q10],
-            additionalComment: comment,
-            submittedAt: submittedAt
-          });
-        }
-      }
-    });
-    
-    if (!reportInfo) {
-      throw new Error('리포트를 찾을 수 없습니다.');
+    // 해당 ID의 리포트 찾기
+    const reportRow = data.find(row => row[idIndex] === reportId);
+    if (!reportRow) {
+      throw new Error(`ID가 ${reportId}인 리포트를 찾을 수 없습니다.`);
     }
     
-    // 성격 분석 수행
-    const analysis = analyzePersonality(responses);
+    // 응답 데이터 파싱
+    let responses = [];
+    try {
+      const responsesStr = reportRow[responsesIndex];
+      if (responsesStr && typeof responsesStr === 'string') {
+        responses = JSON.parse(responsesStr);
+      }
+      console.log('파싱된 응답 데이터:', responses);
+    } catch (e) {
+      console.error('응답 데이터 파싱 실패:', e);
+      responses = [];
+    }
+    
+    const result = {
+      id: reportId,
+      requesterName: reportRow[requesterNameIndex],
+      responses: responses
+    };
+    
+    console.log('반환할 리포트 데이터:', result);
     
     return {
       success: true,
-      data: {
-        ...reportInfo,
-        responseCount: responses.length,
-        responses: responses,
-        analysis: analysis
-      }
+      data: result
     };
+    
   } catch (error) {
     console.error('getReport error:', error);
     return {
       success: false,
-      error: '리포트를 조회할 수 없습니다: ' + error.message
+      error: error.message
     };
   }
 }

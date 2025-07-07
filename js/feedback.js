@@ -8,7 +8,7 @@ let responses = {};
 
 // Configuration (전역에서 사용)
 const FEEDBACK_CONFIG = {
-    // Google Apps Script 웹 앱 URL - 실제 배포 후 업데이트 필요
+    // Google Apps Script 웹 앱 URL
     API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
     MIN_RESPONSES: 3
 };

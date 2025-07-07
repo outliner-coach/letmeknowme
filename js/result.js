@@ -417,55 +417,30 @@ async function showReportView() {
 
 // 응답 분석 로직 (PRD 7번 명세)
 function analyzeResponses(responses) {
-    console.log('analyzeResponses 시작, 입력 데이터:', responses);
+    console.log('응답 분석 시작:', responses);
     
-    // 빈 응답 데이터 확인
-    const hasValidData = responses.some(response => {
-        const answers = response.responses || [];
-        return answers.some(answer => answer && answer.trim() !== '');
-    });
-    
-    if (!hasValidData) {
-        console.warn('모든 응답이 비어있습니다. 테스트 데이터를 사용합니다.');
-        // 현실적인 테스트 데이터로 교체
+    // 응답이 없거나 빈 배열인 경우에만 테스트 데이터 사용
+    if (!responses || !Array.isArray(responses) || responses.length === 0) {
+        console.log('응답 데이터가 없어 테스트 데이터를 사용합니다.');
         responses = [
-            {
-                respondentName: '친구1',
-                respondentRelation: '친구',
-                responses: ['A', 'A', 'B', 'A', 'B', 'A', 'A', 'B', 'A', '신중한,책임감 있는,든든한'],
-                additionalComment: '정말 믿음직한 사람입니다.',
-                submittedAt: new Date().toISOString()
-            },
-            {
-                respondentName: '동료1',
-                respondentRelation: '동료',
-                responses: ['A', 'B', 'A', 'A', 'A', 'B', 'A', 'A', 'B', '리더십 있는,신뢰할 수 있는,진지한'],
-                additionalComment: '프로젝트에서 항상 의지가 됩니다.',
-                submittedAt: new Date().toISOString()
-            },
-            {
-                respondentName: '가족',
-                respondentRelation: '가족',
-                responses: ['B', 'A', 'A', 'B', 'A', 'A', 'B', 'A', 'A', '따뜻한,배려심 깊은,든든한'],
-                additionalComment: '가족 중에서도 가장 든든한 존재입니다.',
-                submittedAt: new Date().toISOString()
-            },
             {
                 respondentName: '후배',
                 respondentRelation: '후배',
-                responses: ['A', 'A', 'A', 'A', 'B', 'A', 'A', 'A', 'A', '멘토 같은,지혜로운,성실한'],
+                responses: ['A', 'A', 'A', 'A', 'B', 'A', 'A', 'A', 'A', ['멘토 같은', '지혜로운', '성실한']],
                 additionalComment: '항상 좋은 조언을 해주셔서 감사합니다.',
                 submittedAt: new Date().toISOString()
             },
             {
                 respondentName: '선배',
                 respondentRelation: '선배',
-                responses: ['A', 'B', 'B', 'A', 'A', 'B', 'A', 'B', 'A', '신뢰할 수 있는,성숙한,차분한'],
+                responses: ['A', 'B', 'B', 'A', 'A', 'B', 'A', 'B', 'A', ['신뢰할 수 있는', '성숙한', '차분한']],
                 additionalComment: '언제나 믿고 의지할 수 있는 후배입니다.',
                 submittedAt: new Date().toISOString()
             }
         ];
         console.log('테스트 데이터로 교체됨:', responses);
+    } else {
+        console.log('실제 응답 데이터를 사용합니다.');
     }
     
     // 초기화
@@ -493,8 +468,15 @@ function analyzeResponses(responses) {
         const keywordsAnswer = answers[9];
         console.log(`Q10 키워드 답변:`, keywordsAnswer);
         
-        if (keywordsAnswer && keywordsAnswer.trim()) {
-            // 쉼표로 구분된 키워드들을 분리
+        if (Array.isArray(keywordsAnswer)) {
+            // 배열인 경우 직접 처리
+            keywordsAnswer.forEach(keyword => {
+                if (keyword && keyword.trim()) {
+                    keywordCounts[keyword.trim()] = (keywordCounts[keyword.trim()] || 0) + 1;
+                }
+            });
+        } else if (keywordsAnswer && typeof keywordsAnswer === 'string') {
+            // 문자열인 경우 쉼표로 분리 (이전 데이터 호환성 유지)
             const keywords = keywordsAnswer.split(',').map(k => k.trim()).filter(k => k);
             keywords.forEach(keyword => {
                 keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1;
