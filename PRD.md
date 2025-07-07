@@ -24,273 +24,59 @@
 4.1. 사용자 데이터 시트
 시트 이름: feedbacks
 
-설명: 사용자별 리포트 요청 및 응답 결과를 저장합니다.
+설명: 리포트 생성(META)과 설문 응답(RESPONSE) 데이터를 모두 저장합니다. 각 행은 하나의 이벤트(생성 또는 응답)를 나타냅니다.
 
 컬럼 구성:
 
-컬럼명
-
-데이터 타입
-
-설명
-
-예시
-
-id
-
-Text
-
-각 리포트를 구분하는 고유 UUID.
-
-a1b2c3-d4e5-f6g7
-
-requester_name
-
-Text
-
-피드백 요청자의 이름 또는 닉네임.
-
-김민준
-
-responses
-
-Text
-
-응답 결과들을 JSON 배열 형태의 문자열로 저장.
-
-"[{\"q1\":\"A\",...}]"
-
-created_at
-
-Date
-
-리포트가 생성된 일시.
-
-2025-07-01T20:30:00.000Z
+| 컬럼명 | 데이터 타입 | 설명 |
+|---|---|---|
+| id | Text | 모든 관련 행을 묶는 리포트의 고유 ID. |
+| type | Text | 행의 종류. 'META' 또는 'RESPONSE'. |
+| created_at | Date | 행이 생성된 일시 (ISO 8601 형식). |
+| requester_name | Text | 피드백 요청자의 이름. `type`이 'META'일 때만 사용됩니다. |
+| q1 ~ q9 | Text | 질문 1~9에 대한 답변 (A~F). `type`이 'RESPONSE'일 때만 사용됩니다. |
+| q10_keywords | Text | 질문 10에서 선택된 키워드들의 JSON 배열. `type`이 'RESPONSE'일 때만 사용됩니다. 예: `["리더십", "책임감"]` |
 
 4.2. 콘텐츠 관리 시트 (CMS)
 시트 이름: contents
 
-설명: 서비스에 표시되는 모든 텍스트 콘텐츠를 관리합니다. (질문, 선택지, 결과 문구 등)
+설명: 서비스에 표시되는 모든 텍스트 콘텐츠(질문, 선택지, 결과 문구 등)를 관리합니다. Key-Value 형태로 구성됩니다.
 
-컬럼 구성: Key-Value 형태
-
-key
-
-value
-
-(질문)
-
-
-
-q1_text
-
-이 친구에게 '새로운 프로젝트'가 주어졌을 때 가장 먼저 할 일은?
-
-q2_text
-
-친구들과의 여행 계획을 짤 때 이 친구의 스타일은?
-
-q3_text
-
-이 친구가 스트레스를 푸는 방식에 가장 가까운 것은?
-
-q4_text
-
-이 친구의 SNS 피드에서 가장 많이 보이는 게시물은?
-
-q5_text
-
-이 친구에게 '선물'을 한다면 어떤 것이 좋을까?
-
-q6_text
-
-대화 중 의견 충돌이 생겼을 때 이 친구의 대처법은?
-
-q7_text
-
-이 친구가 무인도에 단 하나의 물건만 가져갈 수 있다면?
-
-q8_text
-
-이 친구의 방은 어떤 모습일 것 같나?
-
-q9_text
-
-이 친구가 영화를 만든다면 어떤 장르일까?
-
-q10_text
-
-[강점 키워드] 이 친구를 가장 잘 표현하는 키워드 3가지를 골라주세요.
-
-(선택지)
-
-
-
-q1_choice_A
-
-최종 목표를 설정하고 팀원들에게 역할을 분배한다.
-
-q1_choice_B
-
-프로젝트에 대해 팀원들이 어떻게 생각하는지부터 묻는다.
-
-q1_choice_C
-
-프로젝트 컨셉을 독창적으로 시각화하는 작업을 시작한다.
-
-q1_choice_D
-
-"우리 한번 재밌게 해보자!"라며 팀의 사기를 북돋운다.
-
-q1_choice_E
-
-예상되는 리스크를 분석하고 단계별 계획표를 작성한다.
-
-q1_choice_F
-
-일단 관련 분야를 직접 경험해보기 위해 현장으로 나선다.
-
-q2_choice_A
-
-여행의 리더로서 예산과 동선을 책임지고 결정한다.
-
-q2_choice_B
-
-모두의 의견이 잘 반영되도록 중간에서 조율한다.
-
-...
-
-(이하 Q9까지 모든 선택지 내용을 위와 같은 패턴으로 작성)
-
-(키워드)
-
-
-
-keyword_list
-
-["리더십", "책임감", "추진력", "공감능력", "배려심", "다정함", "창의력", "독창성", "심미안", "긍정적", "유머감각", "사교성", "분석력", "논리적", "효율성", "도전적", "자유로움", "호기심"]
-
-(아키타입)
-
-
-
-archetype_A_name
-
-든든한 리더
-
-archetype_A_desc
-
-목표 지향, 책임, 추진
-
-archetype_B_name
-
-따뜻한 상담가
-
-archetype_B_desc
-
-공감, 경청, 관계 조율
-
-archetype_C_name
-
-창의적인 아티스트
-
-archetype_C_desc
-
-독창성, 심미안, 감성
-
-archetype_D_name
-
-긍정의 에너자이저
-
-archetype_D_desc
-
-활력, 유머, 분위기 주도
-
-archetype_E_name
-
-치밀한 전략가
-
-archetype_E_desc
-
-분석, 논리, 계획
-
-archetype_F_name
-
-자유로운 탐험가
-
-archetype_F_desc
-
-호기심, 도전, 경험 중시
-
-(결과 코멘트)
-
-
-
-comment_A_B
-
-당신은 목표를 향해 팀을 이끄는 '리더'의 모습과 함께, 구성원들을 세심하게 챙기는 '상담가'의 따뜻함도 가지고 있군요!
-
-comment_A_C
-
-당신은 강력한 추진력을 가진 '리더'이면서 동시에, 세상을 남다른 시선으로 바라보는 '아티스트'의 감성을 지녔습니다.
-
-comment_E_F
-
-당신은 모든 것을 철저하게 분석하는 '전략가'이지만, 그 안에는 언제든 훌쩍 떠날 준비가 된 '탐험가'의 영혼이 숨 쉬고 있습니다.
-
-...
-
-(이하 모든 조합(30개)의 코멘트를 위와 같은 패턴으로 작성)
+(콘텐츠 시트의 상세 내용은 기존과 동일하므로 생략)
 
 5. 백엔드 API 명세 (Google Apps Script)
 배포 형태: 웹 앱 (액세스 권한: 모든 사용자)
 
 Endpoint URL: 배포 후 생성된 고유 URL (https://script.google.com/macros/s/.../exec)
 
-Request Method: GET
+### GET 요청
 
-Case 1: 전체 콘텐츠 조회 (신규)
+**Case 1: 전체 콘텐츠 조회**
+- **요청:** `GET {Endpoint URL}?action=getContent`
+- **처리:** `contents` 시트의 모든 Key-Value 데이터를 읽어 하나의 JSON 객체로 반환합니다.
+- **성공 응답 (JSON):** `{ "success": true, "data": { "q1_text": "...", "q1_choice_A": "...", ... } }`
 
-요청: GET {Endpoint URL}?action=getContent
+**Case 2: 최근 리포트 목록 조회**
+- **요청:** `GET {Endpoint URL}?action=getReports`
+- **처리:** `feedbacks` 시트에서 'META' 타입의 데이터를 기반으로 최근 리포트 목록을 생성하고, 각 리포트의 응답 수를 계산하여 최신순으로 정렬 후 반환합니다.
+- **성공 응답 (JSON):** `{ "success": true, "data": [ { "id": "...", "name": "...", "date": "...", "responseCount": 5 }, ... ] }`
 
-처리: contents 시트의 모든 Key-Value 데이터를 읽어와 하나의 큰 JSON 객체로 변환하여 반환.
+**Case 3: 특정 리포트 상세 데이터 조회**
+- **요청:** `GET {Endpoint URL}?action=getReport&id={report_id}`
+- **처리:** 주어진 `id`에 해당하는 'META' 데이터(요청자 이름)와 모든 'RESPONSE' 데이터(응답 목록)를 `feedbacks` 시트에서 찾아 조합하여 반환합니다.
+- **성공 응답 (JSON):** `{ "success": true, "data": { "id": "...", "requesterName": "...", "responses": [ { "q1":"A", ... }, ... ] } }`
 
-응답 (JSON): { "q1_text": "...", "q1_choice_A": "...", ... }
+### POST 요청
 
-Case 2: 전체 리포트 목록 조회
+**Case 1: 신규 리포트 생성**
+- **요청 Body (JSON):** `{ "action": "create", "name": "김민준" }`
+- **처리:** 새 리포트 ID를 생성하고, `type`을 'META'로 하여 `feedbacks` 시트에 새 행을 추가합니다.
+- **성공 응답 (JSON):** `{ "success": true, "data": { "id": "새로_생성된_id" } }`
 
-요청: GET {Endpoint URL} (파라미터 없음)
-
-처리: feedbacks 시트의 id, requester_name, created_at을 추출하여 최신순 정렬 후 반환.
-
-응답 (JSON): [ { "id": "...", "name": "...", "date": "..." } ]
-
-Case 3: 특정 리포트 상세 데이터 조회
-
-요청: GET {Endpoint URL}?id={report_id}
-
-처리: id에 해당하는 행을 찾아 id, requester_name, responses 등을 반환.
-
-응답 (JSON): { "id": "...", "requester_name": "...", "responses": [ ... ] }
-
-Request Method: POST
-
-Case 1: 신규 리포트 생성
-
-요청 Body (JSON): { "action": "create", "name": "김민준" }
-
-처리: 새 UUID를 생성하고, name과 함께 새 행을 추가.
-
-응답 (JSON): { "id": "새로_생성된_uuid" }
-
-Case 2: 설문 응답 제출
-
-요청 Body (JSON): { "action": "submit", "id": "uuid1", "response": { "q1":"A", ... "q10":["키워드1", ...]} }
-
-처리: id로 해당 행을 찾아 responses 컬럼에 새 response 객체를 추가(append)하고 업데이트.
-
-응답 (JSON): { "status": "success" }
+**Case 2: 설문 응답 제출**
+- **요청 Body (JSON):** `{ "action": "submit", "id": "리포트_id", "response": { "q1":"A", ..., "q10":["키워드1", ...] } }`
+- **처리:** 전달받은 `id`와 함께 `type`을 'RESPONSE'로 하여 `feedbacks` 시트에 새 응답 행을 추가합니다.
+- **성공 응답 (JSON):** `{ "success": true, "message": "응답이 성공적으로 제출되었습니다." }`
 
 6. 화면별 기능 명세
 6.1. 메인 페이지 (index.html)

@@ -1,9 +1,13 @@
 /**
  * Let Me Know Me - Google Apps Script Backend
- * 
- * Database Structure:
- * - feedbacks sheet: id, requester_name, responses, created_at
- * - contents sheet: key, value (for questions, choices, keywords, archetypes, comments)
+ *
+ * Database Structure (feedbacks sheet):
+ * - id: Report's unique ID
+ * - type: 'META' for report creation, 'RESPONSE' for a submission
+ * - created_at: Timestamp of the row creation
+ * - requester_name: Name of the person requesting feedback (only in META)
+ * - q1-q9: Answers for questions 1-9 (only in RESPONSE)
+ * - q10_keywords: JSON array of keywords for question 10 (only in RESPONSE)
  */
 
 // Google Sheets 스프레드시트 ID
@@ -11,155 +15,247 @@ const SPREADSHEET_ID = '1mTxn4HJRZiuuLe_HpqDCP_KgXQzXGj0ZcgYz3MeVzWY';
 const FEEDBACKS_SHEET = 'feedbacks';
 const CONTENTS_SHEET = 'contents';
 
-/**
- * Main entry point for GET requests
- */
+// --- API Entry Points ---
+
 function doGet(e) {
-  // JSONP 콜백 지원
-  const callback = e.parameter.callback;
-  const result = handleRequest(e);
-  
-  if (callback) {
-    // JSONP 응답
-    return ContentService
-      .createTextOutput(callback + '(' + JSON.stringify(result) + ')')
-      .setMimeType(ContentService.MimeType.JAVASCRIPT);
-  } else {
-    // 일반 JSON 응답
-    return ContentService
-      .createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-/**
- * Main entry point for POST requests
- */
-function doPost(e) {
-  // POST 요청도 JSONP 콜백 지원
-  const callback = e.parameter.callback;
-  const result = handleRequest(e);
-  
-  if (callback) {
-    // JSONP 응답
-    return ContentService
-      .createTextOutput(callback + '(' + JSON.stringify(result) + ')')
-      .setMimeType(ContentService.MimeType.JAVASCRIPT);
-  } else {
-    // 일반 JSON 응답
-    return ContentService
-      .createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-/**
- * Handle all requests
- */
-function handleRequest(e) {
+  const action = e.parameter.action;
+  let result;
   try {
-    const action = e.parameter.action;
-    
     switch (action) {
       case 'getContent':
-        return getContent();
-      case 'createReport':
-        return createReport(e.parameter.requesterName);
+        result = getContent();
+        break;
       case 'getReports':
-        return getReports();
+        result = getReports();
+        break;
       case 'getReport':
-        return getReport(e.parameter.id);
-      case 'submitResponse':
-        return submitResponse(e.parameter.reportId, e.parameter.responses);
+        if (!e.parameter.id) throw new Error("리포트 ID가 필요합니다.");
+        result = getReport(e.parameter.id);
+        break;
       default:
-        return {
-          success: false,
-          error: '지원하지 않는 액션입니다: ' + action
-        };
+        throw new Error("지원하지 않는 GET 액션입니다: " + action);
     }
   } catch (error) {
-    console.error('Request handling error:', error);
-    return {
-      success: false,
-      error: '서버 오류가 발생했습니다: ' + error.message
-    };
+    console.error('GET Error:', error.message, error.stack);
+    result = { success: false, error: error.message };
   }
+  // Add CORS header to allow cross-origin requests
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON)
+    .withHeaders({'Access-Control-Allow-Origin': '*'});
 }
+
+function doPost(e) {
+  let result;
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    const action = payload.action;
+
+    switch (action) {
+      case 'create':
+        if (!payload.name) throw new Error("요청자 이름이 필요합니다.");
+        result = createReport(payload.name);
+        break;
+      case 'submit':
+        if (!payload.id || !payload.response) throw new Error("리포트 ID와 응답 데이터가 필요합니다.");
+        result = submitResponse(payload.id, payload.response);
+        break;
+      default:
+        throw new Error("지원하지 않는 POST 액션입니다: " + action);
+    }
+  } catch (error) {
+    console.error('POST Error:', error.message, error.stack);
+    result = { success: false, error: '잘못된 요청입니다: ' + error.message };
+  }
+  // Add CORS header to allow cross-origin requests
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON)
+    .withHeaders({'Access-Control-Allow-Origin': '*'});
+}
+
+function doOptions(e) {
+  return ContentService.createTextOutput("")
+    .withHeaders({
+      'Access-Control-Allow-Origin': '*', // 모든 출처 허용
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    });
+}
+
+// --- Core Logic ---
+
+/**
+ * 신규 리포트 생성 (META 데이터)
+ */
+function createReport(name) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
+  if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
+
+  const reportId = 'rpt_' + Date.now();
+  const createdAt = new Date().toISOString();
+
+  sheet.appendRow([
+    reportId,        // id
+    'META',          // type
+    createdAt,       // created_at
+    name.trim(),     // requester_name
+    '', '', '', '', '', '', '', '', '', '' // q1-q10 (공백)
+  ]);
+
+  return { success: true, data: { id: reportId } };
+}
+
+/**
+ * 설문 응답 제출 (RESPONSE 데이터)
+ */
+function submitResponse(reportId, response) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
+  if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
+
+  const createdAt = new Date().toISOString();
+
+  sheet.appendRow([
+    reportId,                     // id
+    'RESPONSE',                   // type
+    createdAt,                    // created_at
+    '',                           // requester_name (공백)
+    response.q1 || '',            // q1
+    response.q2 || '',            // q2
+    response.q3 || '',            // q3
+    response.q4 || '',            // q4
+    response.q5 || '',            // q5
+    response.q6 || '',            // q6
+    response.q7 || '',            // q7
+    response.q8 || '',            // q8
+    response.q9 || '',            // q9
+    JSON.stringify(response.q10 || []) // q10_keywords (JSON 문자열)
+  ]);
+
+  return { success: true, message: '응답이 성공적으로 제출되었습니다.' };
+}
+
+/**
+ * 특정 리포트 상세 데이터 조회
+ */
+function getReport(reportId) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
+  if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift() || []; // 헤더 추출 및 원본에서 제거
+
+  const idCol = headers.indexOf('id');
+  const typeCol = headers.indexOf('type');
+  const nameCol = headers.indexOf('requester_name');
+  const q1Col = headers.indexOf('q1');
+  const q10Col = headers.indexOf('q10_keywords');
+
+  let requesterName = '';
+  const responses = [];
+
+  data.forEach(row => {
+    if (row[idCol] === reportId) {
+      if (row[typeCol] === 'META') {
+        requesterName = row[nameCol];
+      } else if (row[typeCol] === 'RESPONSE') {
+        const response = {};
+        for (let i = 0; i < 9; i++) {
+          response[`q${i + 1}`] = row[q1Col + i];
+        }
+        try {
+          response.q10 = JSON.parse(row[q10Col]);
+        } catch (e) {
+          response.q10 = [];
+        }
+        responses.push(response);
+      }
+    }
+  });
+
+  if (!requesterName) {
+    throw new Error(`ID가 ${reportId}인 리포트를 찾을 수 없습니다.`);
+  }
+
+  const result = {
+    id: reportId,
+    requesterName: requesterName,
+    responses: responses
+  };
+
+  return { success: true, data: result };
+}
+
+
+/**
+ * 최근 리포트 목록 조회
+ */
+function getReports() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
+  if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
+
+  const data = sheet.getDataRange().getValues();
+  data.shift(); // 헤더 제거
+
+  const reports = {}; // { id: { name, date, count } }
+
+  data.forEach(row => {
+    const id = row[0];
+    const type = row[1];
+    const date = row[2];
+    const name = row[3];
+
+    if (type === 'META') {
+      if (!reports[id]) {
+        reports[id] = { id: id, name: name, date: date, responseCount: 0 };
+      }
+    } else if (type === 'RESPONSE') {
+      if (reports[id]) {
+        reports[id].responseCount++;
+      }
+    }
+  });
+
+  const reportList = Object.values(reports);
+  reportList.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  return { success: true, data: reportList.slice(0, 10) };
+}
+
+
+// --- Content Management ---
 
 /**
  * Get all content data (questions, choices, keywords, archetypes, comments)
  */
 function getContent() {
   try {
-    console.log('getContent 함수 호출됨');
-    
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(CONTENTS_SHEET);
-    
     if (!sheet) {
-      console.log('콘텐츠 시트가 없음, 초기화 시도');
       initializeContentData();
-      // 초기화 후 다시 시트 가져오기
-      sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(CONTENTS_SHEET);
-      if (!sheet) {
-        throw new Error(`${CONTENTS_SHEET} 시트를 생성할 수 없습니다.`);
-      }
+      const newSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(CONTENTS_SHEET);
+      if (!newSheet) throw new Error(`${CONTENTS_SHEET} 시트를 생성할 수 없습니다.`);
+      return getContent(); // 재귀 호출
     }
     
-    // 시트 데이터 읽기
     const data = sheet.getDataRange().getValues();
     const contentData = {};
     
-    console.log(`콘텐츠 데이터 행 수: ${data.length}`);
-    
-    // 데이터를 키-값 쌍으로 변환
     data.forEach(row => {
       if (row.length >= 2 && row[0] && row[1]) {
         const key = row[0];
         let value = row[1];
-        
-        // JSON 문자열인 경우 파싱
         if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
-          try {
-            value = JSON.parse(value);
-          } catch (e) {
-            // JSON 파싱 실패 시 문자열 그대로 사용
-          }
+          try { value = JSON.parse(value); } catch (e) {}
         }
-        
         contentData[key] = value;
       }
     });
     
-    console.log(`변환된 콘텐츠 데이터 키 수: ${Object.keys(contentData).length}`);
-    console.log('주요 키들:', Object.keys(contentData).slice(0, 10));
-    
-    // 필수 데이터 확인 및 기본값 설정
-    const requiredTypes = ['A', 'B', 'C', 'D', 'E', 'F'];
-    requiredTypes.forEach(type => {
-      if (!contentData[`type_${type}_name`]) {
-        contentData[`type_${type}_name`] = getDefaultTypeName(type);
-      }
-      if (!contentData[`type_${type}_description`]) {
-        contentData[`type_${type}_description`] = getDefaultTypeDescription(type);
-      }
-    });
-    
-    return {
-      success: true,
-      data: contentData
-    };
+    return { success: true, data: contentData };
     
   } catch (error) {
     console.error('getContent error:', error);
-    
-    // 에러 발생 시 기본 데이터 반환
-    const defaultData = getDefaultContentData();
-    
-    return {
-      success: true,
-      data: defaultData,
-      warning: '기본 데이터를 사용합니다: ' + error.message
-    };
+    return { success: false, error: '콘텐츠 데이터를 가져올 수 없습니다: ' + error.message };
   }
 }
 
@@ -225,25 +321,21 @@ function initializeContentData() {
     ];
     
     // 키워드 데이터 (18개 키워드)
-    const keywords = [
-      ['keyword_A1', '신중한'], ['keyword_A2', '책임감 있는'], ['keyword_A3', '든든한'],
-      ['keyword_A4', '리더십 있는'], ['keyword_A5', '신뢰할 수 있는'], ['keyword_A6', '진지한'],
-      ['keyword_B1', '따뜻한'], ['keyword_B2', '공감하는'], ['keyword_B3', '배려심 깊은'],
-      ['keyword_B4', '듣기 좋아하는'], ['keyword_B5', '이해심 많은'], ['keyword_B6', '친절한'],
-      ['keyword_C1', '창의적인'], ['keyword_C2', '독특한'], ['keyword_C3', '예술적인'],
-      ['keyword_C4', '상상력 풍부한'], ['keyword_C5', '영감을 주는'], ['keyword_C6', '개성 있는'],
-      ['keyword_D1', '밝은'], ['keyword_D2', '에너지 넘치는'], ['keyword_D3', '긍정적인'],
-      ['keyword_D4', '유머러스한'], ['keyword_D5', '활발한'], ['keyword_D6', '재미있는'],
-      ['keyword_E1', '논리적인'], ['keyword_E2', '체계적인'], ['keyword_E3', '계획성 있는'],
-      ['keyword_E4', '분석적인'], ['keyword_E5', '신중한'], ['keyword_E6', '완벽주의적인'],
-      ['keyword_F1', '자유로운'], ['keyword_F2', '모험적인'], ['keyword_F3', '유연한'],
-      ['keyword_F4', '적응력 있는'], ['keyword_F5', '개방적인'], ['keyword_F6', '호기심 많은']
+    const allKeywords = [
+      '신중한', '책임감 있는', '든든한',
+      '리더십 있는', '신뢰할 수 있는', '진지한',
+      '따뜻한', '공감하는', '배려심 깊은',
+      '듣기 좋아하는', '이해심 많은', '친절한',
+      '창의적인', '독특한', '예술적인',
+      '상상력 풍부한', '영감을 주는', '개성 있는',
+      '밝은', '에너지 넘치는', '긍정적인',
+      '유머러스한', '활발한', '재미있는',
+      '논리적인', '체계적인', '계획성 있는',
+      '분석적인', '신중한', '완벽주의적인',
+      '자유로운', '모험적인', '유연한',
+      '적응력 있는', '개방적인', '호기심 많은'
     ];
-    
-    // 모든 데이터를 시트에 추가
-    questions.forEach(row => sheet.appendRow(row));
-    personalityTypes.forEach(row => sheet.appendRow(row));
-    keywords.forEach(row => sheet.appendRow(row));
+    sheet.appendRow(['keyword_list', JSON.stringify(allKeywords)]);
     
     console.log('콘텐츠 데이터가 성공적으로 초기화되었습니다.');
     
@@ -252,372 +344,3 @@ function initializeContentData() {
     throw error;
   }
 }
-
-/**
- * Get recent reports list
- */
-function getReports() {
-  try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
-    
-    if (!sheet) {
-      throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
-    }
-    
-    const data = sheet.getDataRange().getValues();
-    const reports = [];
-    const reportStats = {};
-    
-    // 데이터 파싱
-    data.slice(1).forEach(row => {
-      const [reportId, type, requesterName, , , , , , , , , , , createdAt] = row;
-      
-      if (type === 'META') {
-        reports.push({
-          id: reportId,
-          requesterName: requesterName,
-          createdAt: createdAt,
-          responseCount: 0
-        });
-        reportStats[reportId] = 0;
-      } else if (type === 'RESPONSE') {
-        if (reportStats[reportId] !== undefined) {
-          reportStats[reportId]++;
-        }
-      }
-    });
-    
-    // 응답 수 업데이트
-    reports.forEach(report => {
-      report.responseCount = reportStats[report.id] || 0;
-    });
-    
-    // 최신순 정렬 후 최대 10개만 반환
-    reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
-    return {
-      success: true,
-      data: reports.slice(0, 10)
-    };
-  } catch (error) {
-    console.error('getReports error:', error);
-    return {
-      success: false,
-      error: '리포트 목록을 가져올 수 없습니다: ' + error.message
-    };
-  }
-}
-
-/**
- * Get report data by ID
- */
-function getReport(reportId) {
-  try {
-    console.log('getReport 함수 호출됨, reportId:', reportId);
-    
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
-    if (!sheet) {
-      throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
-    }
-    
-    // 데이터 범위 가져오기
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const idIndex = headers.indexOf('id');
-    const requesterNameIndex = headers.indexOf('requester_name');
-    const responsesIndex = headers.indexOf('responses');
-    
-    // 해당 ID의 리포트 찾기
-    const reportRow = data.find(row => row[idIndex] === reportId);
-    if (!reportRow) {
-      throw new Error(`ID가 ${reportId}인 리포트를 찾을 수 없습니다.`);
-    }
-    
-    // 응답 데이터 파싱
-    let responses = [];
-    try {
-      const responsesStr = reportRow[responsesIndex];
-      if (responsesStr && typeof responsesStr === 'string') {
-        responses = JSON.parse(responsesStr);
-      }
-      console.log('파싱된 응답 데이터:', responses);
-    } catch (e) {
-      console.error('응답 데이터 파싱 실패:', e);
-      responses = [];
-    }
-    
-    const result = {
-      id: reportId,
-      requesterName: reportRow[requesterNameIndex],
-      responses: responses
-    };
-    
-    console.log('반환할 리포트 데이터:', result);
-    
-    return {
-      success: true,
-      data: result
-    };
-    
-  } catch (error) {
-    console.error('getReport error:', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Create new report
- */
-function createReport(requesterName) {
-  try {
-    if (!requesterName || requesterName.trim() === '') {
-      throw new Error('요청자 이름이 필요합니다.');
-    }
-    
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
-    
-    if (!sheet) {
-      throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
-    }
-    
-    // 새 리포트 ID 생성 (타임스탬프 기반)
-    const reportId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    const createdAt = new Date().toISOString();
-    
-    // 리포트 메타데이터 행 추가
-    sheet.appendRow([
-      reportId,
-      'META',
-      requesterName.trim(),
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      createdAt,
-      0 // 초기 응답 수
-    ]);
-    
-    return {
-      success: true,
-      data: {
-        id: reportId,
-        requesterName: requesterName.trim(),
-        createdAt: createdAt,
-        responseCount: 0
-      }
-    };
-  } catch (error) {
-    console.error('createReport error:', error);
-    return {
-      success: false,
-      error: '리포트를 생성할 수 없습니다: ' + error.message
-    };
-  }
-}
-
-/**
- * Submit survey response
- */
-function submitResponse(reportId, responsesJson) {
-  try {
-    if (!reportId) {
-      throw new Error('리포트 ID가 필요합니다.');
-    }
-    
-    if (!responsesJson) {
-      throw new Error('응답 데이터가 필요합니다.');
-    }
-    
-    let responseData;
-    try {
-      responseData = JSON.parse(responsesJson);
-    } catch (e) {
-      throw new Error('응답 데이터 형식이 올바르지 않습니다.');
-    }
-    
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
-    
-    if (!sheet) {
-      throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
-    }
-    
-    // 리포트 존재 확인
-    const data = sheet.getDataRange().getValues();
-    const reportExists = data.slice(1).some(row => row[0] === reportId && row[1] === 'META');
-    
-    if (!reportExists) {
-      throw new Error('존재하지 않는 리포트입니다.');
-    }
-    
-    // 응답 데이터 추가
-    const submittedAt = new Date().toISOString();
-    const responses = responseData.responses || [];
-    
-    sheet.appendRow([
-      reportId,
-      'RESPONSE',
-      '', // requesterName (META에서만 사용)
-      responseData.respondentName || '익명',
-      responseData.respondentRelation || '지인',
-      responses[0] || '',
-      responses[1] || '',
-      responses[2] || '',
-      responses[3] || '',
-      responses[4] || '',
-      responses[5] || '',
-      responses[6] || '',
-      responses[7] || '',
-      responses[8] || '',
-      responses[9] || '',
-      responseData.additionalComment || '',
-      submittedAt
-    ]);
-    
-    return {
-      success: true,
-      data: {
-        message: '응답이 성공적으로 제출되었습니다.',
-        submittedAt: submittedAt
-      }
-    };
-  } catch (error) {
-    console.error('submitResponse error:', error);
-    return {
-      success: false,
-      error: '응답을 제출할 수 없습니다: ' + error.message
-    };
-  }
-}
-
-/**
- * 성격 분석 함수
- */
-function analyzePersonality(responses) {
-  if (!responses || responses.length === 0) {
-    return {
-      primaryType: null,
-      scores: {},
-      summary: '아직 충분한 응답이 없습니다.'
-    };
-  }
-  
-  // 성격 유형별 점수 계산
-  const typeScores = {
-    'A': 0, // 든든한 리더
-    'B': 0, // 따뜻한 상담가
-    'C': 0, // 창의적인 아티스트
-    'D': 0, // 긍정의 에너자이저
-    'E': 0, // 치밀한 전략가
-    'F': 0  // 자유로운 탐험가
-  };
-  
-  // 질문별 성격 유형 매핑 (예시)
-  const questionTypeMapping = [
-    ['A', 'B'], // Q1: 리더십 vs 공감
-    ['C', 'D'], // Q2: 창의성 vs 긍정성
-    ['E', 'F'], // Q3: 계획성 vs 자유로움
-    ['A', 'E'], // Q4: 리더십 vs 전략성
-    ['B', 'C'], // Q5: 상담 vs 창의성
-    ['D', 'F'], // Q6: 에너지 vs 탐험
-    ['A', 'B'], // Q7: 리더십 vs 공감
-    ['C', 'E'], // Q8: 창의성 vs 전략성
-    ['D', 'B'], // Q9: 긍정성 vs 상담
-    ['F', 'A']  // Q10: 탐험 vs 리더십
-  ];
-  
-  // 각 응답에서 점수 계산
-  responses.forEach(response => {
-    const answers = response.responses;
-    answers.forEach((answer, qIndex) => {
-      if (qIndex < questionTypeMapping.length && answer >= 1 && answer <= 6) {
-        const types = questionTypeMapping[qIndex];
-        if (answer <= 3) {
-          // 1-3: 첫 번째 성격 유형에 점수
-          typeScores[types[0]] += (4 - answer);
-        } else {
-          // 4-6: 두 번째 성격 유형에 점수
-          typeScores[types[1]] += (answer - 3);
-        }
-      }
-    });
-  });
-  
-  // 최고 점수 유형 찾기
-  const maxScore = Math.max(...Object.values(typeScores));
-  const primaryType = Object.keys(typeScores).find(type => typeScores[type] === maxScore);
-  
-  // 백분율로 변환
-  const totalScore = Object.values(typeScores).reduce((sum, score) => sum + score, 0);
-  const percentageScores = {};
-  Object.keys(typeScores).forEach(type => {
-    percentageScores[type] = totalScore > 0 ? Math.round((typeScores[type] / totalScore) * 100) : 0;
-  });
-  
-  return {
-    primaryType: primaryType,
-    scores: percentageScores,
-    rawScores: typeScores,
-    totalResponses: responses.length,
-    summary: `${responses.length}명의 응답을 바탕으로 분석한 결과입니다.`
-  };
-}
-
-/**
- * Get default type name
- */
-function getDefaultTypeName(type) {
-  const names = {
-    'A': '든든한 리더',
-    'B': '따뜻한 상담가',
-    'C': '창의적인 아티스트',
-    'D': '긍정의 에너자이저',
-    'E': '치밀한 전략가',
-    'F': '자유로운 탐험가'
-  };
-  return names[type] || `타입 ${type}`;
-}
-
-/**
- * Get default type description
- */
-function getDefaultTypeDescription(type) {
-  const descriptions = {
-    'A': '신중하고 책임감이 강한 당신! 깊이 있는 사고와 진정성으로 주변 사람들에게 신뢰를 주는 든든한 존재입니다.',
-    'B': '따뜻하고 공감능력이 뛰어난 당신! 사람들의 마음을 이해하고 위로해주는 따뜻한 상담가 같은 존재입니다.',
-    'C': '창의적이고 독창적인 당신! 새로운 아이디어와 독특한 시각으로 세상을 바라보는 예술가 같은 존재입니다.',
-    'D': '에너지가 넘치고 목표지향적인 당신! 긍정적인 에너지로 주변을 활기차게 만드는 에너자이저 같은 존재입니다.',
-    'E': '분석적이고 체계적인 당신! 데이터와 논리를 바탕으로 완벽한 전략을 세우는 뛰어난 전략가입니다.',
-    'F': '자유롭고 모험을 좋아하는 당신! 새로운 경험과 변화를 즐기는 자유로운 탐험가 같은 존재입니다.'
-  };
-  return descriptions[type] || `${type} 타입의 설명입니다.`;
-}
-
-/**
- * Get default content data
- */
-function getDefaultContentData() {
-  const data = {};
-  
-  // 타입 정보
-  const types = ['A', 'B', 'C', 'D', 'E', 'F'];
-  types.forEach(type => {
-    data[`type_${type}_name`] = getDefaultTypeName(type);
-    data[`type_${type}_description`] = getDefaultTypeDescription(type);
-  });
-  
-  // 코멘트 데이터
-  data['comment_A_B'] = '든든한 리더십과 따뜻한 배려심을 동시에 갖춘 당신! 사람들에게 신뢰받는 리더이면서도 따뜻한 마음으로 다가가는 매력적인 사람입니다.';
-  data['comment_A_C'] = '안정감 있는 리더십과 창의적인 아이디어가 조화를 이루는 당신! 체계적이면서도 독창적인 접근으로 새로운 가능성을 열어가는 사람입니다.';
-  data['comment_B_C'] = '따뜻한 마음과 창의적인 감성이 어우러진 당신! 사람들의 마음을 치유하면서도 아름다운 영감을 주는 특별한 존재입니다.';
-  
-  return data;
-} 

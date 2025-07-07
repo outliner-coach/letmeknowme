@@ -6,13 +6,24 @@ let analysisResult = null;
 let radarChart = null;
 let updateInterval = null;
 
-// Configuration
-const CONFIG = {
-    // Google Apps Script 웹 앱 URL - 실제 배포 후 업데이트 필요
-    API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
-    MIN_RESPONSES: 3,
-    UPDATE_INTERVAL: 30000 // 30초마다 업데이트
-};
+// API 호출 함수
+async function callApi(method, params) {
+    const url = new URL(CONFIG.API_BASE_URL);
+    if (method === 'GET') {
+        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+        const response = await fetch(url);
+        return response.json();
+    } else if (method === 'POST') {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify(params)
+        });
+        return response.json();
+    }
+}
 
 // 결과 페이지 전용 유틸리티 함수들
 const ResultUtils = {
@@ -66,54 +77,12 @@ const ResultUtils = {
     }
 };
 
-// JSONP 헬퍼 함수
-function jsonp(url, params = {}) {
-    return new Promise((resolve, reject) => {
-        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-        
-        // 콜백 함수 등록
-        window[callbackName] = function(data) {
-            delete window[callbackName];
-            document.body.removeChild(script);
-            resolve(data);
-        };
-        
-        // URL 파라미터 구성
-        const queryParams = new URLSearchParams(params);
-        queryParams.append('callback', callbackName);
-        
-        // 스크립트 태그 생성
-        const script = document.createElement('script');
-        script.src = url + '?' + queryParams.toString();
-        script.onerror = function() {
-            delete window[callbackName];
-            document.body.removeChild(script);
-            reject(new Error('JSONP request failed'));
-        };
-        
-        document.body.appendChild(script);
-        
-        // 타임아웃 설정 (10초)
-        setTimeout(() => {
-            if (window[callbackName]) {
-                delete window[callbackName];
-                document.body.removeChild(script);
-                reject(new Error('JSONP request timeout'));
-            }
-        }, 10000);
-    });
-}
-
 // 결과 페이지 API 함수들
 const ResultAPI = {
     // 리포트 조회
     async getReport(reportId) {
         try {
-            const result = await jsonp(CONFIG.API_BASE_URL, {
-                action: 'getReport',
-                id: reportId
-            });
-            
+            const result = await callApi('GET', { action: 'getReport', id: reportId });
             if (result.success) {
                 return result.data;
             } else {
@@ -128,10 +97,7 @@ const ResultAPI = {
     // 콘텐츠 데이터 조회
     async getContent() {
         try {
-            const result = await jsonp(CONFIG.API_BASE_URL, {
-                action: 'getContent'
-            });
-            
+            const result = await callApi('GET', { action: 'getContent' });
             if (result.success) {
                 return result.data;
             } else {
@@ -419,28 +385,19 @@ async function showReportView() {
 function analyzeResponses(responses) {
     console.log('응답 분석 시작:', responses);
     
-    // 응답이 없거나 빈 배열인 경우에만 테스트 데이터 사용
+    // 응답이 없거나 빈 배열인 경우 빈 분석 결과를 반환
     if (!responses || !Array.isArray(responses) || responses.length === 0) {
-        console.log('응답 데이터가 없어 테스트 데이터를 사용합니다.');
-        responses = [
-            {
-                respondentName: '후배',
-                respondentRelation: '후배',
-                responses: ['A', 'A', 'A', 'A', 'B', 'A', 'A', 'A', 'A', ['멘토 같은', '지혜로운', '성실한']],
-                additionalComment: '항상 좋은 조언을 해주셔서 감사합니다.',
-                submittedAt: new Date().toISOString()
-            },
-            {
-                respondentName: '선배',
-                respondentRelation: '선배',
-                responses: ['A', 'B', 'B', 'A', 'A', 'B', 'A', 'B', 'A', ['신뢰할 수 있는', '성숙한', '차분한']],
-                additionalComment: '언제나 믿고 의지할 수 있는 후배입니다.',
-                submittedAt: new Date().toISOString()
-            }
-        ];
-        console.log('테스트 데이터로 교체됨:', responses);
-    } else {
-        console.log('실제 응답 데이터를 사용합니다.');
+        console.log('응답 데이터가 없어 분석을 수행할 수 없습니다.');
+        return {
+            mainArchetype: null,
+            subArchetype: null,
+            mainPercentage: 0,
+            subPercentage: 0,
+            radarData: [0, 0, 0, 0, 0, 0],
+            topKeywords: [],
+            totalResponses: 0,
+            scores: { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 }
+        };
     }
     
     // 초기화
@@ -469,17 +426,10 @@ function analyzeResponses(responses) {
         console.log(`Q10 키워드 답변:`, keywordsAnswer);
         
         if (Array.isArray(keywordsAnswer)) {
-            // 배열인 경우 직접 처리
             keywordsAnswer.forEach(keyword => {
                 if (keyword && keyword.trim()) {
                     keywordCounts[keyword.trim()] = (keywordCounts[keyword.trim()] || 0) + 1;
                 }
-            });
-        } else if (keywordsAnswer && typeof keywordsAnswer === 'string') {
-            // 문자열인 경우 쉼표로 분리 (이전 데이터 호환성 유지)
-            const keywords = keywordsAnswer.split(',').map(k => k.trim()).filter(k => k);
-            keywords.forEach(keyword => {
-                keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1;
             });
         }
     });

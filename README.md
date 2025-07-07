@@ -80,30 +80,45 @@ letmeknowme/
 
 ## 🔧 API 명세
 
+모든 요청은 Google Apps Script로 배포된 하나의 웹앱 URL로 전송됩니다.
+
 ### GET 요청
-- `?action=getContent`: 모든 콘텐츠 데이터 조회
-- `?action=getReports`: 최근 리포트 목록 조회
-- `?action=getReport&id={reportId}`: 특정 리포트 조회
+
+- `?action=getContent`: 서비스에 필요한 모든 텍스트 콘텐츠(질문, 성격 유형 설명 등)를 조회합니다.
+- `?action=getReports`: 최근에 생성된 리포트 목록을 조회합니다.
+- `?action=getReport&id={reportId}`: 특정 ID를 가진 리포트의 상세 데이터(요청자 이름, 모든 응답)를 조회합니다.
 
 ### POST 요청
-- `?action=createReport&requesterName={name}`: 새 리포트 생성
-- `?action=submitResponse&reportId={id}`: 설문 응답 제출
 
-## 📊 데이터베이스 스키마
+`Content-Type: application/json` 헤더와 함께 JSON 본문을 전송해야 합니다.
 
-### feedbacks 시트
+- **신규 리포트 생성**
+  - **Request Body**: `{ "action": "create", "name": "요청자_이름" }`
+  - **Response**: `{ "success": true, "data": { "id": "새_리포트_ID" } }`
+
+- **설문 응답 제출**
+  - **Request Body**: `{ "action": "submit", "id": "리포트_ID", "response": { ...응답_객체... } }`
+  - **Response**: `{ "success": true, "message": "응답이 성공적으로 제출되었습니다." }`
+
+## 📊 데이터베이스 스키마 (Google Sheets)
+
+### `feedbacks` 시트
+
+| 컬럼명 | 데이터 타입 | 설명 |
+|---|---|---|
+| id | Text | 모든 관련 행을 묶는 리포트의 고유 ID. |
+| type | Text | 행의 종류. 'META'(리포트 생성) 또는 'RESPONSE'(설문 응답). |
+| created_at | Date | 행이 생성된 일시 (ISO 8601 형식). |
+| requester_name | Text | 피드백 요청자의 이름. `type`이 'META'일 때만 사용됩니다. |
+| q1 ~ q9 | Text | 질문 1~9에 대한 답변 (A~F). `type`이 'RESPONSE'일 때만 사용됩니다. |
+| q10_keywords | Text | 질문 10에서 선택된 키워드들의 JSON 배열. `type`이 'RESPONSE'일 때만 사용됩니다. |
+
+### `contents` 시트
+
 | 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | String | 리포트 고유 ID (UUID) |
-| requester_name | String | 요청자 이름 |
-| responses | JSON | 응답 데이터 배열 |
-| created_at | DateTime | 생성 시간 |
-
-### contents 시트
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| key | String | 데이터 키 (questions, choices, keywords, etc.) |
-| value | JSON | 데이터 값 |
+|---|---|---|
+| key | String | 콘텐츠 데이터의 키 (예: `q1_text`, `type_A_name`) |
+| value | String | `key`에 해당하는 텍스트 값 |
 
 ## 🎯 사용법
 

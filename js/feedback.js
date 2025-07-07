@@ -6,12 +6,24 @@ let reportId = null;
 let requesterName = '';
 let responses = {};
 
-// Configuration (전역에서 사용)
-const FEEDBACK_CONFIG = {
-    // Google Apps Script 웹 앱 URL
-    API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
-    MIN_RESPONSES: 3
-};
+// API 호출 함수
+async function callApi(method, params) {
+    const url = new URL(CONFIG.API_BASE_URL);
+    if (method === 'GET') {
+        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+        const response = await fetch(url);
+        return response.json();
+    } else if (method === 'POST') {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify(params)
+        });
+        return response.json();
+    }
+}
 
 // 설문 페이지 전용 유틸리티 함수들
 const FeedbackUtils = {
@@ -25,10 +37,7 @@ const FeedbackUtils = {
 // 콘텐츠 로딩 함수
 async function loadContent() {
     try {
-        const result = await jsonp(FEEDBACK_CONFIG.API_BASE_URL, {
-            action: 'getContent'
-        });
-        
+        const result = await callApi('GET', { action: 'getContent' });
         if (result.success) {
             return result.data;
         } else {
@@ -40,54 +49,12 @@ async function loadContent() {
     }
 }
 
-// JSONP 헬퍼 함수
-function jsonp(url, params = {}) {
-    return new Promise((resolve, reject) => {
-        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-        
-        // 콜백 함수 등록
-        window[callbackName] = function(data) {
-            delete window[callbackName];
-            document.body.removeChild(script);
-            resolve(data);
-        };
-        
-        // URL 파라미터 구성
-        const queryParams = new URLSearchParams(params);
-        queryParams.append('callback', callbackName);
-        
-        // 스크립트 태그 생성
-        const script = document.createElement('script');
-        script.src = url + '?' + queryParams.toString();
-        script.onerror = function() {
-            delete window[callbackName];
-            document.body.removeChild(script);
-            reject(new Error('JSONP request failed'));
-        };
-        
-        document.body.appendChild(script);
-        
-        // 타임아웃 설정 (10초)
-        setTimeout(() => {
-            if (window[callbackName]) {
-                delete window[callbackName];
-                document.body.removeChild(script);
-                reject(new Error('JSONP request timeout'));
-            }
-        }, 10000);
-    });
-}
-
 // 설문 페이지 API 함수들
 const FeedbackAPI = {
     // 리포트 조회
     async getReport(reportId) {
         try {
-            const result = await jsonp(FEEDBACK_CONFIG.API_BASE_URL, {
-                action: 'getReport',
-                id: reportId
-            });
-            
+            const result = await callApi('GET', { action: 'getReport', id: reportId });
             if (result.success) {
                 return result.data;
             } else {
@@ -99,17 +66,17 @@ const FeedbackAPI = {
         }
     },
 
-    // 설문 응답 제출 (POST 데이터를 GET으로 변환)
-    async submitResponse(reportId, responses) {
+    // 설문 응답 제출
+    async submitResponse(reportId, responseData) {
         try {
-            const result = await jsonp(FEEDBACK_CONFIG.API_BASE_URL, {
-                action: 'submitResponse',
-                reportId: reportId,
-                responses: JSON.stringify(responses)
+            const result = await callApi('POST', {
+                action: 'submit',
+                id: reportId,
+                response: responseData
             });
             
             if (result.success) {
-                return result.data;
+                return result;
             } else {
                 throw new Error(result.error || '응답 제출에 실패했습니다.');
             }

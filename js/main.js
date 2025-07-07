@@ -1,57 +1,31 @@
-// 공통 설정
-const CONFIG = {
-    // Google Apps Script 웹 앱 URL - 실제 배포 후 업데이트 필요
-    API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyehRt7cQkdt5o_SPDJbP0zX3lOJY7fjSf2tPnSU9L_N1_wxKwnUSmdJuoJOJoUCviH/exec',
-    MIN_RESPONSES: 5
-};
 
-// JSONP 헬퍼 함수
-function jsonp(url, params = {}) {
-    return new Promise((resolve, reject) => {
-        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-        
-        // 콜백 함수 등록
-        window[callbackName] = function(data) {
-            delete window[callbackName];
-            document.body.removeChild(script);
-            resolve(data);
-        };
-        
-        // URL 파라미터 구성
-        const queryParams = new URLSearchParams(params);
-        queryParams.append('callback', callbackName);
-        
-        // 스크립트 태그 생성
-        const script = document.createElement('script');
-        script.src = url + '?' + queryParams.toString();
-        script.onerror = function() {
-            delete window[callbackName];
-            document.body.removeChild(script);
-            reject(new Error('JSONP request failed'));
-        };
-        
-        document.body.appendChild(script);
-        
-        // 타임아웃 설정 (10초)
-        setTimeout(() => {
-            if (window[callbackName]) {
-                delete window[callbackName];
-                document.body.removeChild(script);
-                reject(new Error('JSONP request timeout'));
-            }
-        }, 10000);
-    });
+
+// API 호출 함수
+async function callApi(method, params) {
+    const url = new URL(CONFIG.API_BASE_URL);
+    if (method === 'GET') {
+        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+        const response = await fetch(url);
+        return response.json();
+    } else if (method === 'POST') {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8', // Apps Script 웹앱은 text/plain으로 받는 경우가 많음
+            },
+            body: JSON.stringify(params)
+        });
+        return response.json();
+    }
 }
+
 
 // 메인 페이지 API 함수들
 const MainAPI = {
     // 리포트 목록 조회
     async getReports() {
         try {
-            const result = await jsonp(CONFIG.API_BASE_URL, {
-                action: 'getReports'
-            });
-            
+            const result = await callApi('GET', { action: 'getReports' });
             if (result.success) {
                 return result.data;
             } else {
@@ -66,9 +40,9 @@ const MainAPI = {
     // 새 리포트 생성
     async createReport(requesterName) {
         try {
-            const result = await jsonp(CONFIG.API_BASE_URL, {
-                action: 'createReport',
-                requesterName: requesterName
+            const result = await callApi('POST', {
+                action: 'create',
+                name: requesterName
             });
             
             if (result.success) {
@@ -85,11 +59,7 @@ const MainAPI = {
     // 리포트 상세 조회
     async getReport(reportId) {
         try {
-            const result = await jsonp(CONFIG.API_BASE_URL, {
-                action: 'getReport',
-                id: reportId
-            });
-            
+            const result = await callApi('GET', { action: 'getReport', id: reportId });
             if (result.success) {
                 return result.data;
             } else {
@@ -104,10 +74,7 @@ const MainAPI = {
     // 콘텐츠 데이터 조회
     async getContent() {
         try {
-            const result = await jsonp(CONFIG.API_BASE_URL, {
-                action: 'getContent'
-            });
-            
+            const result = await callApi('GET', { action: 'getContent' });
             if (result.success) {
                 return result.data;
             } else {
