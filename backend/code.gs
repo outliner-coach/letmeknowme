@@ -39,10 +39,8 @@ function doGet(e) {
     console.error('GET Error:', error.message, error.stack);
     result = { success: false, error: error.message };
   }
-  // Add CORS header to allow cross-origin requests
   return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON)
-    .withHeaders({'Access-Control-Allow-Origin': '*'});
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
@@ -67,19 +65,8 @@ function doPost(e) {
     console.error('POST Error:', error.message, error.stack);
     result = { success: false, error: '잘못된 요청입니다: ' + error.message };
   }
-  // Add CORS header to allow cross-origin requests
   return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON)
-    .withHeaders({'Access-Control-Allow-Origin': '*'});
-}
-
-function doOptions(e) {
-  return ContentService.createTextOutput("")
-    .withHeaders({
-      'Access-Control-Allow-Origin': '*', // 모든 출처 허용
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    });
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // --- Core Logic ---
@@ -352,6 +339,12 @@ function initializeContentData() {
       ['comment_E_F', '논리적 사고와 자유로운 적응력을 겸비한 완벽한 전략가입니다.']
     ];
     
+    // 질문 데이터를 시트에 기록
+    questions.forEach(q => sheet.appendRow(q));
+
+    // 성격 유형 정보를 시트에 기록
+    personalityTypes.forEach(pt => sheet.appendRow(pt));
+
     // 키워드 데이터 (18개 키워드)
     const allKeywords = [
       '신중한', '책임감 있는', '든든한',

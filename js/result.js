@@ -17,20 +17,24 @@ async function callApi(method, params) {
         let response;
         if (method === 'GET') {
             Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
-            response = await fetch(url);
+            response = await fetch(url, { redirect: 'follow' });
         } else if (method === 'POST') {
             response = await fetch(url, {
                 method: 'POST',
+                redirect: 'follow',
                 headers: {
                     'Content-Type': 'text/plain;charset=utf-8',
                 },
                 body: JSON.stringify(params)
             });
         }
-        if (!response.ok) {
-            throw new Error('서버 응답 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (parseError) {
+            console.error('JSON 파싱 실패. 서버 응답:', text.substring(0, 200));
+            throw new Error('서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.');
         }
-        return response.json();
     } catch (error) {
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
             throw new Error('서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.');
