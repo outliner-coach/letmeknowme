@@ -29,7 +29,13 @@
                     <div id="keywords-container" class="keywords-grid">
                         <!-- 키워드들이 동적으로 생성됩니다 -->
                     </div>
-                    <p class="selected-count">선택됨: <span id="selected-count">0</span>/3</p>
+                    <div class="keyword-actions">
+                        <p class="selected-count">선택됨: <span id="selected-count">0</span>/3</p>
+                        <button type="button" id="reset-keywords-btn" class="btn-keyword-reset" style="display: none;">선택 초기화</button>
+                    </div>
+                    <div class="question-navigation">
+                        <button type="button" class="btn-secondary" id="q10-prev-btn">이전</button>
+                    </div>
                 </div>
 
                 <div class="form-actions">
@@ -56,10 +62,5 @@
 
     <script src="js/config.js"></script>
     <script src="js/feedback.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeFeedbackPage();
-        });
-    </script>
 </body>
 </html> 

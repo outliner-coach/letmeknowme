@@ -5,23 +5,37 @@ let contentData = null;
 let analysisResult = null;
 let radarChart = null;
 let updateInterval = null;
+let isOnline = navigator.onLine;
 
 // API 호출 함수
 async function callApi(method, params) {
+    if (!navigator.onLine) {
+        throw new Error('인터넷 연결이 없습니다. 연결 상태를 확인해주세요.');
+    }
     const url = new URL(CONFIG.API_BASE_URL);
-    if (method === 'GET') {
-        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
-        const response = await fetch(url);
+    try {
+        let response;
+        if (method === 'GET') {
+            Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+            response = await fetch(url);
+        } else if (method === 'POST') {
+            response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
+                body: JSON.stringify(params)
+            });
+        }
+        if (!response.ok) {
+            throw new Error('서버 응답 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        }
         return response.json();
-    } else if (method === 'POST') {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8',
-            },
-            body: JSON.stringify(params)
-        });
-        return response.json();
+    } catch (error) {
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error('서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.');
+        }
+        throw error;
     }
 }
 
@@ -113,11 +127,10 @@ const ResultAPI = {
 // 결과 페이지 초기화
 async function initializeResultPage() {
     try {
-        // URL에서 ID 추출
+        // URL에서 ID 추출 및 형식 검증
         reportId = ResultUtils.getUrlParameter('id');
-        if (!reportId) {
-            alert('잘못된 링크입니다.');
-            window.location.href = 'index.html';
+        if (!reportId || !/^rpt_\d+$/.test(reportId)) {
+            showErrorPage('잘못된 링크입니다. 올바른 결과 링크인지 확인해주세요.');
             return;
         }
 
@@ -133,9 +146,109 @@ async function initializeResultPage() {
         // 주기적 업데이트 시작
         startPeriodicUpdate();
 
+        // 페이지 이탈 시 폴링 정리
+        window.addEventListener('beforeunload', cleanupPolling);
+
+        // 탭 가시성에 따라 폴링 일시정지/재개
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        // 오프라인/온라인 감지
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
     } catch (error) {
         console.error('결과 페이지 초기화 실패:', error);
-        alert('페이지를 불러오는 중 오류가 발생했습니다.');
+        if (error.message.includes('리포트를 찾을 수 없습니다')) {
+            showErrorPage('리포트를 찾을 수 없습니다. 링크가 올바른지 확인해주세요.');
+        } else if (error.message.includes('네트워크') || error.message.includes('연결')) {
+            showErrorPage('서버에 연결할 수 없습니다. 네트워크 상태를 확인하고 새로고침해주세요.');
+        } else {
+            showErrorPage('페이지를 불러오는 중 오류가 발생했습니다. 새로고침해주세요.');
+        }
+    }
+}
+
+// 에러 페이지 표시
+function showErrorPage(message) {
+    const waitingView = document.getElementById('waiting-view');
+    if (waitingView) {
+        waitingView.innerHTML = `
+            <header>
+                <h1>Let me Know me</h1>
+                <p class="subtitle">오류가 발생했습니다</p>
+            </header>
+            <main>
+                <div class="error-page" style="text-align: center; padding: 40px;">
+                    <p style="font-size: 3rem; margin-bottom: 20px;">😢</p>
+                    <p style="font-size: 1.1rem; color: #4a5568; margin-bottom: 30px;">${message}</p>
+                    <div class="action-buttons">
+                        <button class="btn-primary" onclick="location.reload()">새로고침</button>
+                        <button class="btn-secondary" onclick="location.href='index.html'">메인으로</button>
+                    </div>
+                </div>
+            </main>
+        `;
+    }
+}
+
+// 폴링 정리
+function cleanupPolling() {
+    if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+    }
+}
+
+// 탭 가시성 변경 처리 (다중 탭 폴링 방지)
+function handleVisibilityChange() {
+    if (document.hidden) {
+        cleanupPolling();
+    } else {
+        // 탭이 다시 보일 때 즉시 데이터 갱신 후 폴링 재개
+        refreshData();
+        startPeriodicUpdate();
+    }
+}
+
+// 즉시 데이터 갱신
+async function refreshData() {
+    try {
+        const newReportData = await ResultAPI.getReport(reportId);
+        reportData = newReportData;
+        updateResponseCount();
+    } catch (error) {
+        console.error('데이터 갱신 실패:', error);
+    }
+}
+
+// 오프라인 감지
+function handleOffline() {
+    isOnline = false;
+    showOfflineBanner(true);
+    cleanupPolling();
+}
+
+// 온라인 복귀
+function handleOnline() {
+    isOnline = true;
+    showOfflineBanner(false);
+    refreshData();
+    startPeriodicUpdate();
+}
+
+// 오프라인 배너 표시
+function showOfflineBanner(show) {
+    let banner = document.getElementById('offline-banner');
+    if (show) {
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'offline-banner';
+            banner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #f56565; color: white; text-align: center; padding: 10px; font-weight: 600; z-index: 9999;';
+            banner.textContent = '인터넷 연결이 끊어졌습니다. 연결 상태를 확인해주세요.';
+            document.body.prepend(banner);
+        }
+    } else {
+        if (banner) banner.remove();
     }
 }
 
@@ -329,6 +442,11 @@ function updateResponseCount() {
 
 // 주기적 업데이트 시작
 function startPeriodicUpdate() {
+    // 이미 실행 중인 폴링이 있으면 중복 방지
+    if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+    }
     // 30초마다 데이터 새로고침
     updateInterval = setInterval(async () => {
         try {
@@ -748,22 +866,38 @@ function renderStatistics() {
 // 결과 공유
 function shareResult() {
     const shareData = {
-        title: `${reportData.requester_name}님의 성격 분석 결과`,
+        title: `${reportData.requesterName}님의 성격 분석 결과`,
         text: `친구들이 보는 나의 모습을 확인해보세요!`,
         url: window.location.href
     };
 
     if (navigator.share) {
-        navigator.share(shareData).catch(console.error);
-    } else {
-        // 폴백: 링크 복사
-        ResultUtils.copyToClipboard(window.location.href).then(success => {
-            if (success) {
-                alert('결과 링크가 클립보드에 복사되었습니다!');
-            } else {
-                alert('공유 기능을 사용할 수 없습니다.');
+        navigator.share(shareData).catch(err => {
+            // 사용자가 공유 취소한 경우 무시
+            if (err.name !== 'AbortError') {
+                // 공유 API 실패 시 클립보드 복사로 폴백
+                copyAndNotify();
             }
         });
+    } else {
+        copyAndNotify();
+    }
+}
+
+// 클립보드 복사 후 알림 표시
+async function copyAndNotify() {
+    const success = await ResultUtils.copyToClipboard(window.location.href);
+    const shareBtn = document.getElementById('share-result-btn');
+    if (success && shareBtn) {
+        const originalText = shareBtn.textContent;
+        shareBtn.textContent = '링크가 복사되었습니다!';
+        shareBtn.classList.add('copy-success');
+        setTimeout(() => {
+            shareBtn.textContent = originalText;
+            shareBtn.classList.remove('copy-success');
+        }, 2000);
+    } else if (!success) {
+        alert('링크 복사에 실패했습니다. 주소창의 URL을 직접 복사해주세요.');
     }
 }
 

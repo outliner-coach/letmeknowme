@@ -5,23 +5,38 @@ let contentData = null;
 let reportId = null;
 let requesterName = '';
 let responses = {};
+let isSubmitting = false;
+let hasStartedSurvey = false;
 
 // API 호출 함수
 async function callApi(method, params) {
+    if (!navigator.onLine) {
+        throw new Error('인터넷 연결이 없습니다. 연결 상태를 확인해주세요.');
+    }
     const url = new URL(CONFIG.API_BASE_URL);
-    if (method === 'GET') {
-        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
-        const response = await fetch(url);
+    try {
+        let response;
+        if (method === 'GET') {
+            Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+            response = await fetch(url);
+        } else if (method === 'POST') {
+            response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
+                body: JSON.stringify(params)
+            });
+        }
+        if (!response.ok) {
+            throw new Error('서버 응답 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        }
         return response.json();
-    } else if (method === 'POST') {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8',
-            },
-            body: JSON.stringify(params)
-        });
-        return response.json();
+    } catch (error) {
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error('서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.');
+        }
+        throw error;
     }
 }
 
@@ -90,11 +105,10 @@ const FeedbackAPI = {
 // 설문 페이지 초기화
 async function initializeFeedbackPage() {
     try {
-        // URL에서 ID 추출
+        // URL에서 ID 추출 및 형식 검증
         reportId = FeedbackUtils.getUrlParameter('id');
-        if (!reportId) {
-            alert('잘못된 링크입니다.');
-            window.location.href = 'index.html';
+        if (!reportId || !/^rpt_\d+$/.test(reportId)) {
+            showFeedbackError('잘못된 설문 링크입니다. 올바른 링크인지 확인해주세요.');
             return;
         }
 
@@ -103,7 +117,7 @@ async function initializeFeedbackPage() {
 
         // 콘텐츠 데이터 로딩
         contentData = await loadContent();
-        
+
         // 리포트 정보 가져오기 (요청자 이름)
         const reportData = await FeedbackAPI.getReport(reportId);
         requesterName = reportData.requesterName;
@@ -126,9 +140,63 @@ async function initializeFeedbackPage() {
         // 첫 번째 질문 표시
         showQuestion(1);
 
+        // 설문 중 이탈 방지
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        // 오프라인/온라인 감지
+        window.addEventListener('online', () => showOfflineBanner(false));
+        window.addEventListener('offline', () => showOfflineBanner(true));
+
     } catch (error) {
         console.error('설문 페이지 초기화 실패:', error);
-        alert('페이지를 불러오는 중 오류가 발생했습니다.');
+        if (error.message.includes('리포트를 찾을 수 없습니다')) {
+            showFeedbackError('설문을 찾을 수 없습니다. 링크가 올바른지 확인해주세요.');
+        } else if (error.message.includes('네트워크') || error.message.includes('연결')) {
+            showFeedbackError('서버에 연결할 수 없습니다. 네트워크 상태를 확인하고 새로고침해주세요.');
+        } else {
+            showFeedbackError('페이지를 불러오는 중 오류가 발생했습니다. 새로고침해주세요.');
+        }
+    }
+}
+
+// 에러 페이지 표시
+function showFeedbackError(message) {
+    const form = document.getElementById('feedback-form');
+    if (form) {
+        form.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <p style="font-size: 3rem; margin-bottom: 20px;">😢</p>
+                <p style="font-size: 1.1rem; color: #4a5568; margin-bottom: 30px;">${message}</p>
+                <div class="action-buttons" style="display: flex; gap: 15px; justify-content: center;">
+                    <button class="btn-primary" onclick="location.reload()">새로고침</button>
+                    <button class="btn-secondary" onclick="location.href='index.html'">메인으로</button>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// 설문 중 이탈 방지
+function handleBeforeUnload(e) {
+    if (hasStartedSurvey && !isSubmitting) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+}
+
+// 오프라인 배너 표시
+function showOfflineBanner(show) {
+    let banner = document.getElementById('offline-banner');
+    if (show) {
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'offline-banner';
+            banner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #f56565; color: white; text-align: center; padding: 10px; font-weight: 600; z-index: 9999;';
+            banner.textContent = '인터넷 연결이 끊어졌습니다. 연결 복구 후 제출해주세요.';
+            document.body.prepend(banner);
+        }
+    } else {
+        if (banner) banner.remove();
     }
 }
 
@@ -300,6 +368,7 @@ function setupEventListeners() {
     // 라디오 버튼 선택 이벤트
     document.querySelectorAll('input[type="radio"]').forEach(radio => {
         radio.addEventListener('change', function() {
+            hasStartedSurvey = true;
             const questionNum = parseInt(this.name.replace('q', ''));
             enableNextButton(questionNum);
         });
@@ -349,6 +418,22 @@ function setupEventListeners() {
             updateSubmitButton();
         });
     });
+
+    // 키워드 초기화 버튼
+    const resetKeywordsBtn = document.getElementById('reset-keywords-btn');
+    if (resetKeywordsBtn) {
+        resetKeywordsBtn.addEventListener('click', function() {
+            resetKeywords();
+        });
+    }
+
+    // Q10에서 이전 버튼 (Q9로 돌아가기)
+    const q10PrevBtn = document.getElementById('q10-prev-btn');
+    if (q10PrevBtn) {
+        q10PrevBtn.addEventListener('click', function() {
+            showQuestion(9);
+        });
+    }
 
     // 폼 제출 이벤트
     const form = document.getElementById('feedback-form');
@@ -417,6 +502,27 @@ function updateKeywordCount() {
     if (countSpan) {
         countSpan.textContent = selectedKeywords.length;
     }
+
+    // 초기화 버튼 표시/숨김
+    const resetBtn = document.getElementById('reset-keywords-btn');
+    if (resetBtn) {
+        resetBtn.style.display = selectedKeywords.length > 0 ? 'inline-block' : 'none';
+    }
+}
+
+// 키워드 선택 초기화
+function resetKeywords() {
+    selectedKeywords = [];
+
+    // 모든 체크박스 해제 및 스타일 초기화
+    document.querySelectorAll('.keyword-item').forEach(item => {
+        item.classList.remove('selected');
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox) checkbox.checked = false;
+    });
+
+    updateKeywordCount();
+    updateSubmitButton();
 }
 
 // 제출 버튼 상태 업데이트
@@ -430,6 +536,8 @@ function updateSubmitButton() {
 // 폼 제출 처리
 async function handleFormSubmit(e) {
     e.preventDefault();
+
+    if (isSubmitting) return; // 중복 제출 방지
 
     try {
         // 응답 데이터 수집
@@ -454,36 +562,64 @@ async function handleFormSubmit(e) {
         }
         responseData.q10 = selectedKeywords;
 
-        // 제출 버튼 비활성화
+        // 제출 상태 설정 및 전체 폼 비활성화
+        isSubmitting = true;
+        setFormDisabled(true);
+
         const submitBtn = document.getElementById('submit-feedback-btn');
-        submitBtn.disabled = true;
         submitBtn.textContent = '제출 중...';
 
         // API 호출
         await FeedbackAPI.submitResponse(reportId, responseData);
 
-        // 성공 메시지 표시
+        // beforeunload 해제 후 성공 메시지 표시
+        window.removeEventListener('beforeunload', handleBeforeUnload);
         showSuccessMessage();
 
     } catch (error) {
         console.error('설문 제출 실패:', error);
-        alert('설문 제출에 실패했습니다. 다시 시도해주세요.');
-        
-        // 제출 버튼 재활성화
+        isSubmitting = false;
+        setFormDisabled(false);
+
         const submitBtn = document.getElementById('submit-feedback-btn');
         submitBtn.disabled = false;
         submitBtn.textContent = '피드백 제출하기';
+
+        if (error.message.includes('네트워크') || error.message.includes('연결')) {
+            alert('네트워크 오류로 제출에 실패했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.');
+        } else {
+            alert('설문 제출에 실패했습니다. 다시 시도해주세요.');
+        }
     }
+}
+
+// 폼 전체 활성화/비활성화
+function setFormDisabled(disabled) {
+    const form = document.getElementById('feedback-form');
+    if (!form) return;
+
+    form.querySelectorAll('input, button').forEach(el => {
+        el.disabled = disabled;
+    });
+
+    // 키워드 아이템 클릭 방지
+    form.querySelectorAll('.keyword-item').forEach(el => {
+        el.style.pointerEvents = disabled ? 'none' : 'auto';
+        el.style.opacity = disabled ? '0.6' : '1';
+    });
 }
 
 // 성공 메시지 표시
 function showSuccessMessage() {
     const form = document.getElementById('feedback-form');
     const successMessage = document.getElementById('success-message');
-    
+
     form.style.display = 'none';
     successMessage.style.display = 'block';
-    
+
     // 페이지 상단으로 스크롤
     window.scrollTo({ top: 0, behavior: 'smooth' });
-} 
+}
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', initializeFeedbackPage);

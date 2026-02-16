@@ -2,20 +2,33 @@
 
 // API 호출 함수
 async function callApi(method, params) {
+    if (!navigator.onLine) {
+        throw new Error('인터넷 연결이 없습니다. 연결 상태를 확인해주세요.');
+    }
     const url = new URL(CONFIG.API_BASE_URL);
-    if (method === 'GET') {
-        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
-        const response = await fetch(url);
+    try {
+        let response;
+        if (method === 'GET') {
+            Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+            response = await fetch(url);
+        } else if (method === 'POST') {
+            response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
+                body: JSON.stringify(params)
+            });
+        }
+        if (!response.ok) {
+            throw new Error('서버 응답 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        }
         return response.json();
-    } else if (method === 'POST') {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8', // Apps Script 웹앱은 text/plain으로 받는 경우가 많음
-            },
-            body: JSON.stringify(params)
-        });
-        return response.json();
+    } catch (error) {
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error('서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.');
+        }
+        throw error;
     }
 }
 
@@ -283,8 +296,12 @@ async function initializeMainPage() {
                 loadRecentReports();
 
             } catch (error) {
-                alert('링크 생성에 실패했습니다. 다시 시도해주세요.');
                 console.error(error);
+                if (error.message.includes('네트워크') || error.message.includes('연결')) {
+                    alert('네트워크 오류로 링크 생성에 실패했습니다. 인터넷 연결을 확인해주세요.');
+                } else {
+                    alert('링크 생성에 실패했습니다. 다시 시도해주세요.');
+                }
             } finally {
                 createBtn.disabled = false;
                 createBtn.textContent = '내 리포트 링크 만들기';
@@ -387,8 +404,28 @@ async function loadContent() {
     }
 }
 
+// 오프라인 배너 표시
+function showOfflineBanner(show) {
+    let banner = document.getElementById('offline-banner');
+    if (show) {
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'offline-banner';
+            banner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #f56565; color: white; text-align: center; padding: 10px; font-weight: 600; z-index: 9999;';
+            banner.textContent = '인터넷 연결이 끊어졌습니다. 연결 상태를 확인해주세요.';
+            document.body.prepend(banner);
+        }
+    } else {
+        if (banner) banner.remove();
+    }
+}
+
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
     initializeMainPage();
     loadRecentReports();
+
+    // 오프라인/온라인 감지
+    window.addEventListener('online', () => showOfflineBanner(false));
+    window.addEventListener('offline', () => showOfflineBanner(true));
 });

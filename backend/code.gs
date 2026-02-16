@@ -91,6 +91,12 @@ function createReport(name) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
   if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
 
+  // 이름 검증 (1~20자)
+  const trimmedName = name.trim();
+  if (trimmedName.length < 1 || trimmedName.length > 20) {
+    throw new Error('이름은 1자 이상 20자 이하로 입력해주세요.');
+  }
+
   const reportId = 'rpt_' + Date.now();
   const createdAt = new Date().toISOString();
 
@@ -111,6 +117,32 @@ function createReport(name) {
 function submitResponse(reportId, response) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
   if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
+
+  // reportId 형식 검증
+  if (!/^rpt_\d+$/.test(reportId)) {
+    throw new Error('잘못된 리포트 ID 형식입니다.');
+  }
+
+  // Q1-Q9 답변 범위 검증 (A-F만 허용)
+  const validAnswers = ['A', 'B', 'C', 'D', 'E', 'F'];
+  for (let i = 1; i <= 9; i++) {
+    const answer = response[`q${i}`];
+    if (!answer || !validAnswers.includes(answer)) {
+      throw new Error(`Q${i} 답변이 유효하지 않습니다. A-F 중 하나를 선택해주세요.`);
+    }
+  }
+
+  // Q10 키워드 검증 (정확히 3개)
+  if (!Array.isArray(response.q10) || response.q10.length !== 3) {
+    throw new Error('키워드를 정확히 3개 선택해주세요.');
+  }
+
+  // 리포트 존재 확인
+  const data = sheet.getDataRange().getValues();
+  const reportExists = data.some(row => row[0] === reportId && row[1] === 'META');
+  if (!reportExists) {
+    throw new Error('존재하지 않는 리포트입니다.');
+  }
 
   const createdAt = new Date().toISOString();
 
@@ -206,7 +238,7 @@ function getReports() {
 
     if (type === 'META') {
       if (!reports[id]) {
-        reports[id] = { id: id, name: name, date: date, responseCount: 0 };
+        reports[id] = { id: id, requesterName: name, createdAt: date, responseCount: 0 };
       }
     } else if (type === 'RESPONSE') {
       if (reports[id]) {
