@@ -11,7 +11,7 @@
  */
 
 // Google Sheets 스프레드시트 ID
-const SPREADSHEET_ID = '1mTxn4HJRZiuuLe_HpqDCP_KgXQzXGj0ZcgYz3MeVzWY';
+const SPREADSHEET_ID = '16qJ9rggrNGxZt-nC4lr5SOEuzVPIjmYmqQxG3wXFyME';
 const FEEDBACKS_SHEET = 'feedbacks';
 const CONTENTS_SHEET = 'contents';
 
