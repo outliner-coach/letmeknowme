@@ -10,10 +10,22 @@
  * - q10_keywords: JSON array of keywords for question 10 (only in RESPONSE)
  */
 
-// Google Sheets 스프레드시트 ID
+// Google Sheets 설정
+// 바인딩된 스크립트: getActiveSpreadsheet() 사용
+// 독립 스크립트: openById(SPREADSHEET_ID) 사용
 const SPREADSHEET_ID = '16qJ9rggrNGxZt-nC4lr5SOEuzVPIjmYmqQxG3wXFyME';
 const FEEDBACKS_SHEET = 'feedbacks';
 const CONTENTS_SHEET = 'contents';
+
+function getSpreadsheet() {
+  // 바인딩된 스크립트인 경우 getActiveSpreadsheet() 우선 사용
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) return ss;
+  } catch (e) {}
+  // 독립 스크립트 폴백
+  return getSpreadsheet();
+}
 
 // --- API Entry Points ---
 
@@ -75,7 +87,7 @@ function doPost(e) {
  * 신규 리포트 생성 (META 데이터)
  */
 function createReport(name) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
+  const sheet = getSpreadsheet().getSheetByName(FEEDBACKS_SHEET);
   if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
 
   // 이름 검증 (1~20자)
@@ -102,7 +114,7 @@ function createReport(name) {
  * 설문 응답 제출 (RESPONSE 데이터)
  */
 function submitResponse(reportId, response) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
+  const sheet = getSpreadsheet().getSheetByName(FEEDBACKS_SHEET);
   if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
 
   // reportId 형식 검증
@@ -157,7 +169,7 @@ function submitResponse(reportId, response) {
  * 특정 리포트 상세 데이터 조회
  */
 function getReport(reportId) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
+  const sheet = getSpreadsheet().getSheetByName(FEEDBACKS_SHEET);
   if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
 
   const data = sheet.getDataRange().getValues();
@@ -209,7 +221,7 @@ function getReport(reportId) {
  * 최근 리포트 목록 조회
  */
 function getReports() {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FEEDBACKS_SHEET);
+  const sheet = getSpreadsheet().getSheetByName(FEEDBACKS_SHEET);
   if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
 
   const data = sheet.getDataRange().getValues();
@@ -248,10 +260,10 @@ function getReports() {
  */
 function getContent() {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(CONTENTS_SHEET);
+    const sheet = getSpreadsheet().getSheetByName(CONTENTS_SHEET);
     if (!sheet) {
       initializeContentData();
-      const newSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(CONTENTS_SHEET);
+      const newSheet = getSpreadsheet().getSheetByName(CONTENTS_SHEET);
       if (!newSheet) throw new Error(`${CONTENTS_SHEET} 시트를 생성할 수 없습니다.`);
       return getContent(); // 재귀 호출
     }
@@ -283,7 +295,7 @@ function getContent() {
  */
 function initializeContentData() {
   try {
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     let sheet = spreadsheet.getSheetByName(CONTENTS_SHEET);
     
     if (sheet) {
