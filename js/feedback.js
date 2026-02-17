@@ -286,8 +286,7 @@ function generateQuestions() {
     let questionsHtml = '';
 
     for (let i = 1; i <= 9; i++) {
-        const questionKey = `q${i}_text`;
-        const questionText = contentData[questionKey] || `질문 ${i}`;
+        const questionText = contentData[`q${i}`] || `질문 ${i}`;
 
         questionsHtml += `
             <div class="question-section" id="q${i}-section" style="display: none;">
