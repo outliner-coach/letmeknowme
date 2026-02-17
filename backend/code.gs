@@ -173,47 +173,38 @@ function getReport(reportId) {
   if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
 
   const data = sheet.getDataRange().getValues();
-  const headers = data.shift() || []; // 헤더 추출 및 원본에서 제거
-
-  const idCol = headers.indexOf('id');
-  const typeCol = headers.indexOf('type');
-  const nameCol = headers.indexOf('requester_name');
-  const q1Col = headers.indexOf('q1');
-  const q10Col = headers.indexOf('q10_keywords');
+  // 컬럼 인덱스: 0=id, 1=type, 2=created_at, 3=requester_name, 4~12=q1~q9, 13=q10_keywords
+  // 첫 행이 헤더인 경우 건너뛰기
+  const startIdx = (data.length > 0 && data[0][0] === 'id') ? 1 : 0;
 
   let requesterName = '';
   const responses = [];
 
-  data.forEach(row => {
-    if (row[idCol] === reportId) {
-      if (row[typeCol] === 'META') {
-        requesterName = row[nameCol];
-      } else if (row[typeCol] === 'RESPONSE') {
+  for (let i = startIdx; i < data.length; i++) {
+    const row = data[i];
+    if (row[0] === reportId) {
+      if (row[1] === 'META') {
+        requesterName = row[3];
+      } else if (row[1] === 'RESPONSE') {
         const response = {};
-        for (let i = 0; i < 9; i++) {
-          response[`q${i + 1}`] = row[q1Col + i];
+        for (let j = 0; j < 9; j++) {
+          response[`q${j + 1}`] = row[4 + j];
         }
         try {
-          response.q10 = JSON.parse(row[q10Col]);
+          response.q10 = JSON.parse(row[13]);
         } catch (e) {
           response.q10 = [];
         }
         responses.push(response);
       }
     }
-  });
+  }
 
   if (!requesterName) {
     throw new Error(`ID가 ${reportId}인 리포트를 찾을 수 없습니다.`);
   }
 
-  const result = {
-    id: reportId,
-    requesterName: requesterName,
-    responses: responses
-  };
-
-  return { success: true, data: result };
+  return { success: true, data: { id: reportId, requesterName: requesterName, responses: responses } };
 }
 
 
@@ -225,11 +216,13 @@ function getReports() {
   if (!sheet) throw new Error(`${FEEDBACKS_SHEET} 시트를 찾을 수 없습니다.`);
 
   const data = sheet.getDataRange().getValues();
-  data.shift(); // 헤더 제거
+  // 첫 행이 헤더인 경우 건너뛰기
+  const startIdx = (data.length > 0 && data[0][0] === 'id') ? 1 : 0;
 
-  const reports = {}; // { id: { name, date, count } }
+  const reports = {};
 
-  data.forEach(row => {
+  for (let i = startIdx; i < data.length; i++) {
+    const row = data[i];
     const id = row[0];
     const type = row[1];
     const date = row[2];
@@ -244,10 +237,10 @@ function getReports() {
         reports[id].responseCount++;
       }
     }
-  });
+  }
 
   const reportList = Object.values(reports);
-  reportList.sort((a, b) => new Date(b.date) - new Date(a.date));
+  reportList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   return { success: true, data: reportList.slice(0, 10) };
 }
