@@ -24,7 +24,7 @@ function getSpreadsheet() {
     if (ss) return ss;
   } catch (e) {}
   // 독립 스크립트 폴백
-  return getSpreadsheet();
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
 // --- API Entry Points ---
