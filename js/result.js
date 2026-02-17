@@ -529,26 +529,30 @@ function analyzeResponses(responses) {
     // 데이터 순회 및 계산
     responses.forEach((response, index) => {
         console.log(`응답 ${index + 1} 처리:`, response);
-        
-        // 응답 데이터 추출
-        const answers = response.responses || [];
-        
-        // Q1-Q9 점수 계산
-        for (let i = 0; i < 9; i++) {
-            const answer = answers[i];
-            console.log(`Q${i+1} 답변:`, answer);
-            
-            if (answer && answer.trim() && scores.hasOwnProperty(answer)) {
-                scores[answer]++;
+
+        // Q1-Q9 점수 계산 (response.q1 ~ response.q9 형태)
+        for (let i = 1; i <= 9; i++) {
+            const answer = response[`q${i}`];
+            console.log(`Q${i} 답변:`, answer);
+
+            if (answer && typeof answer === 'string' && answer.trim() && scores.hasOwnProperty(answer.trim())) {
+                scores[answer.trim()]++;
             }
         }
 
-        // Q10 키워드 계산 (배열의 10번째 항목)
-        const keywordsAnswer = answers[9];
+        // Q10 키워드 계산 (response.q10 배열)
+        const keywordsAnswer = response.q10;
         console.log(`Q10 키워드 답변:`, keywordsAnswer);
-        
+
         if (Array.isArray(keywordsAnswer)) {
             keywordsAnswer.forEach(keyword => {
+                if (keyword && keyword.trim()) {
+                    keywordCounts[keyword.trim()] = (keywordCounts[keyword.trim()] || 0) + 1;
+                }
+            });
+        } else if (typeof keywordsAnswer === 'string' && keywordsAnswer.trim()) {
+            // 문자열로 저장된 경우 (쉼표 구분)
+            keywordsAnswer.split(',').forEach(keyword => {
                 if (keyword && keyword.trim()) {
                     keywordCounts[keyword.trim()] = (keywordCounts[keyword.trim()] || 0) + 1;
                 }
