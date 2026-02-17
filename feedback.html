@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
     <title>친구에 대한 설문 - Let me Know me</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -11,7 +12,7 @@
         <header>
             <h1 id="page-title">친구에 대한 설문</h1>
             <p class="subtitle">솔직하고 재미있게 답해주세요! 🤗</p>
-            <div class="progress-bar">
+            <div class="progress-bar" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="10" aria-label="설문 진행률">
                 <div class="progress-fill" id="progress-fill"></div>
             </div>
             <p class="progress-text"><span id="current-question">1</span> / 10</p>

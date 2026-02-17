@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
     <title>나의 리포트 - Let me Know me</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -32,8 +34,9 @@
                     <div class="share-section">
                         <h3>더 많은 피드백을 받아보세요!</h3>
                         <div class="link-box">
+                            <label for="share-link" class="sr-only">설문 공유 링크</label>
                             <input type="text" id="share-link" readonly placeholder="설문 링크를 불러오는 중...">
-                            <button class="copy-btn" data-target="share-link">복사</button>
+                            <button class="copy-btn" data-target="share-link" aria-label="공유 링크 복사">복사</button>
                         </div>
                         <p class="share-help">이 링크를 친구들에게 공유해보세요</p>
                     </div>
