@@ -65,6 +65,11 @@ index.html (리포트 생성) → feedback.html?id=xxx (설문 응답) → resul
 | `backend/appsscript.json` | Apps Script 매니페스트 — 타임존, 런타임, 웹앱 설정 |
 | `css/styles.css` | 전체 스타일시트 (그라데이션 배경, 반응형 768px/480px 브레이크포인트) |
 
+### 코드 구조 주의사항
+
+- **ES 모듈 미사용**: 각 JS 파일은 독립적인 `<script>` 태그로 로드됨. `callApi()` 함수가 `main.js`, `feedback.js`, `result.js` 세 곳에 동일하게 복제되어 있음. API 호출 로직 변경 시 세 파일 모두 수정 필요
+- **각 HTML 페이지는 `config.js` + 페이지별 JS 파일** 두 개만 로드 (예: `index.html` → `config.js` + `main.js`)
+
 ### API 구조 (Google Apps Script)
 
 ```
@@ -88,8 +93,10 @@ POST { action: 'submit', id, response } → 설문 응답 제출
   - 헤더 행 유무를 자동 감지: `data[0][0] === 'id'` 체크
 - **contents 시트**: 키-값 쌍으로 모든 UI 텍스트/설문 콘텐츠 저장. `initializeContentData()`로 초기화
   - 질문 키: `q1`, `q2`, ..., `q9` (주의: `q1_text` 아님)
+  - 선택지 키: `q1_choice_A`, `q1_choice_B`, ..., `q9_choice_F` (feedback.js에서 사용)
+  - 키워드 키: `keyword_list` (JSON 배열 문자열, 36개 키워드)
   - 유형 키: `type_A_name`, `type_A_description`, ...
-  - 코멘트 키: `comment_A_B`, `comment_A_C`, ...
+  - 코멘트 키: `comment_A_B`, `comment_A_C`, ... (알파벳 순서로만 저장, 프론트에서 역순도 시도)
 
 ### 응답 데이터 형태 (API → 프론트엔드)
 
@@ -108,7 +115,7 @@ POST { action: 'submit', id, response } → 설문 응답 제출
 1. 모든 응답의 `q1`~`q9`에서 A-F 선택 횟수 집계
 2. 최다 득표 유형 = 대표 이미지(mainArchetype), 차점 = 잠재적 매력(subArchetype)
 3. `q10` 키워드 빈도 집계 → 상위 5개 키워드 클라우드
-4. mainArchetype+subArchetype 조합으로 contents에서 종합 코멘트 매칭 (`comment_A_B` 형태)
+4. mainArchetype+subArchetype 조합으로 contents에서 종합 코멘트 매칭 (`comment_A_B` 형태). `renderFinalComment()`는 `comment_X_Y`를 먼저 찾고, 없으면 `comment_Y_X`도 시도
 
 ### 6가지 성격 유형
 
@@ -124,3 +131,9 @@ A: 든든한 리더 | B: 따뜻한 상담가 | C: 창의적인 아티스트 | D:
 6. 정적 파일을 호스팅에 배포 (backend/ 폴더 제외)
 
 상세 체크리스트: `DEPLOYMENT.md` 참조
+
+## GitHub Pages
+
+- 리포지토리: `outliner-coach/letmeknowme`, `main` 브랜치에서 배포
+- `backend/` 폴더는 GitHub Pages에 포함되지만 클라이언트에서 사용하지 않음
+- 정적 사이트이므로 GitHub Pages 배포 시 별도 빌드 과정 없이 push만으로 반영

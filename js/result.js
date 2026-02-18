@@ -760,13 +760,13 @@ function renderRadarChart() {
         datasets: [{
             label: '성향 점수',
             data: analysisResult.radarData,
-            backgroundColor: 'rgba(54, 162, 235, 0.2)',
-            borderColor: 'rgba(54, 162, 235, 1)',
+            backgroundColor: 'rgba(14, 159, 110, 0.15)',
+            borderColor: '#0E9F6E',
             borderWidth: 2,
-            pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+            pointBackgroundColor: '#0E9F6E',
             pointBorderColor: '#fff',
             pointHoverBackgroundColor: '#fff',
-            pointHoverBorderColor: 'rgba(54, 162, 235, 1)'
+            pointHoverBorderColor: '#0E9F6E'
         }]
     };
 
