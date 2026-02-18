@@ -45,7 +45,10 @@
                             </div>
                         </div>
                     </div>
-                    <button id="create-another-btn" class="btn-secondary">다시 만들기</button>
+                    <div class="link-actions">
+                        <button id="share-links-btn" class="btn-primary" style="display: none;">링크 공유하기</button>
+                        <button id="create-another-btn" class="btn-secondary">다시 만들기</button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -72,11 +75,47 @@
             </div>
         </section>
 
-        <!-- 최근 리포트 목록 -->
-        <section class="recent-reports">
-            <h2>최근에 생성된 리포트</h2>
-            <div id="report-list" class="report-list">
-                <div class="loading">리포트 목록을 불러오는 중...</div>
+        <!-- 내 리포트 (localStorage 기반) -->
+        <section class="my-reports" id="my-reports-section" style="display: none;">
+            <h2>내 리포트</h2>
+            <div id="my-reports-list" class="my-reports-list"></div>
+        </section>
+
+        <!-- 6가지 성격 유형 미리보기 -->
+        <section class="personality-preview">
+            <h2>6가지 성격 유형</h2>
+            <p class="section-subtitle">친구들은 나를 어떤 유형으로 볼까요?</p>
+            <div class="personality-grid">
+                <div class="personality-type-card">
+                    <span class="type-icon">🛡️</span>
+                    <h3>든든한 리더</h3>
+                    <p>타고난 리더십으로 주변을 이끄는 사람</p>
+                </div>
+                <div class="personality-type-card">
+                    <span class="type-icon">🤗</span>
+                    <h3>따뜻한 상담가</h3>
+                    <p>공감과 배려로 마음을 어루만지는 사람</p>
+                </div>
+                <div class="personality-type-card">
+                    <span class="type-icon">🎨</span>
+                    <h3>창의적인 아티스트</h3>
+                    <p>독창적 사고와 예술적 감각의 소유자</p>
+                </div>
+                <div class="personality-type-card">
+                    <span class="type-icon">⚡</span>
+                    <h3>긍정의 에너자이저</h3>
+                    <p>밝은 에너지로 주변을 활기차게 만드는 사람</p>
+                </div>
+                <div class="personality-type-card">
+                    <span class="type-icon">🔍</span>
+                    <h3>치밀한 전략가</h3>
+                    <p>논리적 사고와 체계적 접근의 달인</p>
+                </div>
+                <div class="personality-type-card">
+                    <span class="type-icon">🌟</span>
+                    <h3>자유로운 탐험가</h3>
+                    <p>새로운 경험을 추구하는 자유로운 영혼</p>
+                </div>
             </div>
         </section>
 

@@ -186,6 +186,50 @@ const MainUtils = {
     }
 };
 
+// localStorage 기반 내 리포트 관리
+const MyReportsManager = {
+    STORAGE_KEY: 'lmkm_my_reports',
+    MAX_REPORTS: 20,
+
+    save({ id, name, feedbackUrl, resultUrl }) {
+        try {
+            const reports = this.getAll();
+            reports.unshift({
+                id,
+                name,
+                feedbackUrl,
+                resultUrl,
+                createdAt: new Date().toISOString()
+            });
+            // 최대 개수 제한
+            if (reports.length > this.MAX_REPORTS) {
+                reports.length = this.MAX_REPORTS;
+            }
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+        } catch (e) {
+            // localStorage 사용 불가 시 (시크릿 모드 등) 조용히 실패
+            console.warn('localStorage 저장 실패:', e);
+        }
+    },
+
+    getAll() {
+        try {
+            return JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '[]');
+        } catch (e) {
+            return [];
+        }
+    },
+
+    remove(id) {
+        try {
+            const reports = this.getAll().filter(r => r.id !== id);
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+        } catch (e) {
+            console.warn('localStorage 삭제 실패:', e);
+        }
+    }
+};
+
 // URL 파라미터 유틸리티
 const URLUtils = {
     getParam(name) {
@@ -292,12 +336,37 @@ async function initializeMainPage() {
                 document.getElementById('feedback-link').value = feedbackLink;
                 document.getElementById('result-link').value = resultLink;
 
+                // localStorage에 저장
+                MyReportsManager.save({
+                    id: result.id,
+                    name: name,
+                    feedbackUrl: feedbackLink,
+                    resultUrl: resultLink
+                });
+
                 // UI 전환
                 createSection.style.display = 'none';
                 linkDisplayArea.style.display = 'block';
 
-                // 리포트 목록 새로고침
-                loadRecentReports();
+                // Web Share API 버튼 표시 여부
+                const shareBtn = document.getElementById('share-links-btn');
+                if (shareBtn) {
+                    shareBtn.style.display = navigator.share ? '' : 'none';
+                    shareBtn.onclick = function() {
+                        navigator.share({
+                            title: `${name}님의 나를 알려줘 설문`,
+                            text: `${name}님이 보는 나의 모습을 알려주세요!`,
+                            url: feedbackLink
+                        }).catch(err => {
+                            if (err.name !== 'AbortError') {
+                                MainUtils.copyToClipboard(feedbackLink);
+                            }
+                        });
+                    };
+                }
+
+                // 내 리포트 목록 새로고침
+                renderMyReports();
 
             } catch (error) {
                 console.error(error);
@@ -357,37 +426,54 @@ async function initializeMainPage() {
     }
 }
 
-// 최근 리포트 목록 로딩
-async function loadRecentReports() {
-    const reportList = document.getElementById('report-list');
-    if (!reportList) return;
+// 내 리포트 렌더링 (localStorage 기반)
+function renderMyReports() {
+    const section = document.getElementById('my-reports-section');
+    const list = document.getElementById('my-reports-list');
+    if (!section || !list) return;
 
-    try {
-        MainUtils.showLoading(reportList, '리포트 목록을 불러오는 중...');
-        
-        const reports = await MainAPI.getReports();
-        
-        if (reports.length === 0) {
-            reportList.innerHTML = '<div class="no-reports">아직 생성된 리포트가 없습니다.</div>';
-            return;
-        }
+    const reports = MyReportsManager.getAll();
 
-        const reportsHtml = reports.map(report => `
-            <div class="report-item">
-                <a href="result.html?id=${report.id}">
-                    <span class="report-name">${report.requesterName}님의 리포트</span>
-                    <span class="report-info">${report.responseCount}개 응답</span>
-                    <span class="report-date">${MainUtils.formatDate(report.createdAt)}</span>
-                </a>
-            </div>
-        `).join('');
-
-        reportList.innerHTML = reportsHtml;
-
-    } catch (error) {
-        MainUtils.showError(reportList, '리포트 목록을 불러올 수 없습니다.');
-        console.error('리포트 목록 로딩 실패:', error);
+    if (reports.length === 0) {
+        section.style.display = 'none';
+        return;
     }
+
+    section.style.display = '';
+
+    list.innerHTML = reports.map(report => `
+        <div class="my-report-card" data-id="${report.id}">
+            <div class="my-report-info">
+                <a href="${report.resultUrl}" class="my-report-name">${report.name}님의 리포트</a>
+                <span class="my-report-date">${MainUtils.formatDate(report.createdAt)}</span>
+            </div>
+            <div class="my-report-actions">
+                <button class="btn-small btn-copy-feedback" data-url="${report.feedbackUrl}" aria-label="설문 링크 복사">설문 링크 복사</button>
+                <a href="${report.resultUrl}" class="btn-small btn-view-result">결과 보기</a>
+                <button class="btn-small btn-delete-report" data-id="${report.id}" aria-label="리포트 삭제">&times;</button>
+            </div>
+        </div>
+    `).join('');
+
+    // 설문 링크 복사 버튼
+    list.querySelectorAll('.btn-copy-feedback').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const success = await MainUtils.copyToClipboard(this.dataset.url);
+            if (success) {
+                const original = this.textContent;
+                this.textContent = '복사됨!';
+                setTimeout(() => { this.textContent = original; }, 2000);
+            }
+        });
+    });
+
+    // 삭제 버튼
+    list.querySelectorAll('.btn-delete-report').forEach(btn => {
+        btn.addEventListener('click', function() {
+            MyReportsManager.remove(this.dataset.id);
+            renderMyReports();
+        });
+    });
 }
 
 // 전역 변수로 콘텐츠 데이터 저장
@@ -427,7 +513,7 @@ function showOfflineBanner(show) {
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
     initializeMainPage();
-    loadRecentReports();
+    renderMyReports();
 
     // 오프라인/온라인 감지
     window.addEventListener('online', () => showOfflineBanner(false));

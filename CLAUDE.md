@@ -58,7 +58,7 @@ index.html (리포트 생성) → feedback.html?id=xxx (설문 응답) → resul
 |------|------|
 | `js/config.js` | API URL, 최소 응답 수(5), 폴링 간격(30초) 등 전역 설정 |
 | `js/main.js` | index.html — 리포트 생성, 최근 리포트 목록 표시 |
-| `js/feedback.js` | feedback.html — Q1~Q9 객관식(A-F) + Q10 키워드(18개 중 3개) 설문 |
+| `js/feedback.js` | feedback.html — Q1~Q9 객관식(A-F) + Q10 키워드(36개 중 3개) 설문 |
 | `js/result.js` | result.html — 응답 집계, 유형 분석, 레이더 차트/키워드 클라우드/종합 코멘트 렌더링 |
 | `backend/code.gs` | Google Apps Script — CRUD API, 콘텐츠 초기화 |
 | `backend/.clasp.json` | clasp 설정 — Apps Script 프로젝트 ID 매핑 |
@@ -74,8 +74,13 @@ index.html (리포트 생성) → feedback.html?id=xxx (설문 응답) → resul
 
 ### 코드 구조 주의사항
 
-- **ES 모듈 미사용**: 각 JS 파일은 독립적인 `<script>` 태그로 로드됨. `callApi()` 함수가 `main.js`, `feedback.js`, `result.js` 세 곳에 동일하게 복제되어 있음. API 호출 로직 변경 시 세 파일 모두 수정 필요
+- **ES 모듈 미사용**: 각 JS 파일은 독립적인 `<script>` 태그로 로드됨
 - **각 HTML 페이지는 `config.js` + 페이지별 JS 파일** 두 개만 로드 (예: `index.html` → `config.js` + `main.js`)
+- **중복 함수**: 아래 함수들이 `main.js`, `feedback.js`, `result.js`에 동일하게 복제되어 있음. 변경 시 **세 파일 모두** 수정 필요:
+  - `callApi(method, params)` — API 호출 래퍼 (redirect: follow, JSON 파싱)
+  - `showOfflineBanner(show)` — 오프라인 상태 배너 표시/제거
+  - `copyToClipboard(text)` — main.js, result.js에 복제
+  - `formatDate(dateString)` — main.js(상대 시간)와 result.js(로케일 날짜)에 **다른 구현**으로 존재
 
 ### API 구조 (Google Apps Script)
 
@@ -92,6 +97,19 @@ POST { action: 'submit', id, response } → 설문 응답 제출
 - `response.ok` 체크 대신 응답 텍스트를 직접 `JSON.parse()`로 파싱해야 함
 - POST 요청 시 `Content-Type: text/plain;charset=utf-8` 사용 (GAS가 CORS preflight를 처리하지 않으므로)
 - GAS `ContentService`에는 `.withHeaders()` 메서드가 없음 — 사용 금지
+
+### 입력 검증 규칙 (backend/code.gs)
+
+- **리포트 ID 형식**: `rpt_` + `Date.now()` 타임스탬프 (정규식: `/^rpt_\d+$/`)
+- **이름**: 1~20자 (빈 문자열/공백만 불가)
+- **Q1~Q9 응답**: A-F 중 하나만 허용 (9개 모두 필수)
+- **Q10 키워드**: 정확히 3개 필수 (배열)
+
+### result.html 이중 뷰 구조
+
+- **대기 뷰** (응답 < `MIN_RESPONSES`): 응답 카운터, 공유 링크, 30초 자동 폴링
+- **리포트 뷰** (응답 >= `MIN_RESPONSES`): 유형 카드, 레이더 차트, 키워드 클라우드, 종합 코멘트
+- 폴링 전략: `setInterval(30초)`, 탭 숨김 시 정지, 탭 활성화 시 즉시 갱신 후 재시작
 
 ### 데이터 저장 (Google Sheets)
 

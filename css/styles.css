@@ -459,48 +459,181 @@ input[readonly] {
     line-height: 1.6;
 }
 
-/* Report List */
-.recent-reports {
+/* My Reports (localStorage) */
+.my-reports {
     margin-top: 40px;
 }
 
-.recent-reports h2 {
+.my-reports h2 {
     color: #1B2559;
     margin-bottom: 20px;
     font-size: 1.4rem;
 }
 
-.report-list {
+.my-reports-list {
     display: grid;
     gap: 12px;
 }
 
-.report-item {
-    display: block;
-    padding: 20px;
+.my-report-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
     background: #FFFFFF;
     border-radius: 12px;
-    text-decoration: none;
-    color: #1B2559;
     border: 1px solid #E5E7EB;
-    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.report-item:hover {
+.my-report-card:hover {
     border-color: #0E9F6E;
-    transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(14, 159, 110, 0.08);
 }
 
-.report-name {
-    font-weight: 600;
-    font-size: 1.1rem;
-    margin-bottom: 5px;
+.my-report-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
 }
 
-.report-date {
+.my-report-name {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #1B2559;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.my-report-name:hover {
+    color: #0E9F6E;
+}
+
+.my-report-date {
     color: #6B7280;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+}
+
+.my-report-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.2s ease;
+}
+
+.btn-copy-feedback {
+    background: #F0FDF4;
+    color: #0E9F6E;
+    font-weight: 600;
+}
+
+.btn-copy-feedback:hover {
+    background: #D1FAE5;
+}
+
+.btn-view-result {
+    background: #F3F4F6;
+    color: #1B2559;
+    display: inline-block;
+}
+
+.btn-view-result:hover {
+    background: #E5E7EB;
+}
+
+.btn-delete-report {
+    background: none;
+    color: #9CA3AF;
+    font-size: 1.2rem;
+    padding: 4px 8px;
+    line-height: 1;
+}
+
+.btn-delete-report:hover {
+    color: #EF4444;
+}
+
+/* Personality Type Preview */
+.personality-preview {
+    margin-top: 50px;
+}
+
+.personality-preview h2 {
+    color: #1B2559;
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+}
+
+.section-subtitle {
+    color: #6B7280;
+    margin-bottom: 24px;
+    font-size: 1rem;
+}
+
+.personality-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.personality-type-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 16px;
+    padding: 24px 20px;
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.personality-type-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.type-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.personality-type-card h3 {
+    color: #1B2559;
+    font-size: 1.05rem;
+    margin-bottom: 6px;
+}
+
+.personality-type-card p {
+    color: #6B7280;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+/* Link Actions (share + create another) */
+.link-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.link-actions .btn-primary,
+.link-actions .btn-secondary {
+    flex: 1;
 }
 
 .loading, .no-reports {
@@ -844,6 +977,24 @@ footer.footer-dark {
         width: 100%;
         max-width: 300px;
     }
+
+    .personality-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .my-report-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .my-report-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .link-actions {
+        flex-direction: column;
+    }
 }
 
 @media (max-width: 480px) {
@@ -852,6 +1003,10 @@ footer.footer-dark {
     }
 
     .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .personality-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -985,7 +1140,7 @@ footer.footer-dark {
     .btn-primary:hover:not(:disabled),
     .btn-secondary:hover,
     .keyword-item:hover,
-    .report-item:hover {
+    .personality-type-card:hover {
         transform: none;
     }
 }
