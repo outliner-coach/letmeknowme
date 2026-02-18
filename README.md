@@ -8,6 +8,7 @@
 
 - **목적**: 10개 질문으로 구성된 설문조사를 통해 "타인이 보는 나의 모습"을 6가지 성격 유형으로 분석
 - **기술 스택**: HTML, CSS, JavaScript (프론트엔드) + Google Apps Script (백엔드) + Google Sheets (데이터베이스)
+- **폰트/디자인**: Pretendard 웹폰트, 흰색/크림 배경 + 네이비 텍스트 + 에메랄드 그린 포인트
 - **주요 기능**: 링크 공유, 설문 응답, 성격 분석, 시각적 리포트 생성
 
 ## 📊 6가지 성격 유형
@@ -86,12 +87,12 @@ const CONFIG = {
 
 ```
 letmeknowme/
-├── index.html              # 메인 페이지 (이름 입력, 링크 생성)
+├── index.html              # 메인 페이지 (히어로, 이용 방법, 링크 생성)
 ├── feedback.html           # 설문 페이지 (10개 질문)
 ├── result.html             # 결과 페이지 (분석 리포트)
 ├── test.html               # API 엔드포인트 수동 테스트용 유틸리티
 ├── css/
-│   └── styles.css          # 전체 스타일시트 (그라데이션 배경, 반응형)
+│   └── styles.css          # 전체 스타일시트 (Pretendard, 흰색/에메랄드 테마, 반응형)
 ├── js/
 │   ├── config.js           # 전역 설정 (API URL, 최소 응답 수, 폴링 간격)
 │   ├── main.js             # 메인 페이지 로직 (리포트 생성, 목록 표시)

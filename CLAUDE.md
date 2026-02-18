@@ -63,7 +63,14 @@ index.html (리포트 생성) → feedback.html?id=xxx (설문 응답) → resul
 | `backend/code.gs` | Google Apps Script — CRUD API, 콘텐츠 초기화 |
 | `backend/.clasp.json` | clasp 설정 — Apps Script 프로젝트 ID 매핑 |
 | `backend/appsscript.json` | Apps Script 매니페스트 — 타임존, 런타임, 웹앱 설정 |
-| `css/styles.css` | 전체 스타일시트 (그라데이션 배경, 반응형 768px/480px 브레이크포인트) |
+| `css/styles.css` | 전체 스타일시트 (Pretendard 폰트, 흰색/크림 배경, 반응형 768px/480px 브레이크포인트) |
+
+### 디자인 시스템
+
+- **폰트**: Pretendard Variable (CDN, 한국어 최적화) + 시스템 폰트 폴백
+- **컬러**: 배경 흰색(`#FFFFFF`) + 크림(`#FFF8F0`), 텍스트 네이비(`#1B2559`), 서브텍스트 그레이(`#6B7280`), 포인트 에메랄드 그린(`#0E9F6E`)
+- **레이아웃**: max-width 960px, 카드 기반(border-radius 16px, 미세 shadow), 넉넉한 여백
+- **index.html 구조**: 히어로 섹션(`.hero-section`) + 이용 방법 3단계(`.how-it-works`) + 최근 리포트 + 네이비 footer(`.footer-dark`)
 
 ### 코드 구조 주의사항
 
